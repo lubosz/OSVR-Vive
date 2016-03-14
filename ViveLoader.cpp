@@ -129,8 +129,10 @@ namespace vive {
     static const auto ENTRY_POINT_FUNCTION_NAME = "HmdDriverFactory";
     class ViveLoader {
       public:
-        ViveLoader(std::string const &driverFile) {
+        ViveLoader(std::string const& driverRoot, std::string const &driverFile) {
 #if defined(OSVR_WINDOWS)
+            /// @todo Set the PATH to include the driver directory so it can
+            /// find its deps.
             driver_ = LoadLibraryA(driverFile.c_str());
             /// @todo check for NULL
             factory_ = reinterpret_cast<DriverFactory>(
@@ -175,6 +177,6 @@ namespace vive {
 
 int main() {
     auto driverLocation = osvr::vive::tryLoading();
-    osvr::vive::ViveLoader vive(driverLocation);
+    osvr::vive::ViveLoader vive("", driverLocation);
     return 0;
 }
