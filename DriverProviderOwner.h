@@ -1,5 +1,5 @@
 /** @file
-    @brief Implementation
+    @brief Header
 
     @date 2016
 
@@ -22,40 +22,29 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+#ifndef INCLUDED_DriverProviderOwner_h_GUID_299C10C7_DE4D_4DB0_14DB_5CCAC70F3C11
+#define INCLUDED_DriverProviderOwner_h_GUID_299C10C7_DE4D_4DB0_14DB_5CCAC70F3C11
+
 // Internal Includes
-#include "DriverLoader.h"
-#include "FindDriver.h"
+// - none
 
 // Library/third-party includes
 #include <openvr_driver.h>
-#include <osvr/Util/PlatformConfig.h>
 
 // Standard includes
-#include <cstdlib>
-#include <iostream>
-#include <vector>
-
-#if _WIN32
-#define WIN32_LEAN_AND_MEAN
-#include <windows.h>
-#endif
+#include <memory>
+#include <string>
 
 namespace osvr {
-namespace vive {} // namespace vive
+namespace vive {
+
+    template <typename Provider> struct DriverProviderCleanupDeleter {
+        void operator()(Provider *ptr) const {
+            if (ptr) {
+                ptr->Cleanup();
+            }
+        }
+    };
+} // namespace vive
 } // namespace osvr
-
-int main() {
-    auto driverLocation = osvr::vive::findDriver();
-    if (driverLocation.found) {
-        std::cout << "Found the Vive driver at " << driverLocation.driverFile
-                  << std::endl;
-    } else {
-        std::cout << "Could not find the native SteamVR Vive driver, exiting!"
-                  << std::endl;
-        return 1;
-    }
-
-    auto vive = osvr::vive::DriverLoader::make(driverLocation.driverRoot,
-                                               driverLocation.driverFile);
-    return 0;
-}
+#endif // INCLUDED_DriverProviderOwner_h_GUID_299C10C7_DE4D_4DB0_14DB_5CCAC70F3C11

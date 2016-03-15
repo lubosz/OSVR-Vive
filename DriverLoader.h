@@ -33,32 +33,76 @@
 
 // Standard includes
 #include <memory>
+#include <stdexcept>
 #include <string>
-
-#if _WIN32
-#define WIN32_LEAN_AND_MEAN
-#include <windows.h>
-#endif
 
 namespace osvr {
 namespace vive {
+    struct CouldNotLoadDriverModule : std::runtime_error {
+        CouldNotLoadDriverModule()
+            : std::runtime_error("Could not load driver module.") {}
+    };
 
+    struct CouldNotLoadEntryPoint : std::runtime_error {
+        CouldNotLoadEntryPoint()
+            : std::runtime_error(
+                  "Could not load entry point function from driver.") {}
+    };
+
+    struct CouldNotGetInterface : std::runtime_error {
+        CouldNotGetInterface(int errCode)
+            : std::runtime_error(
+                  "Could not get interface from native SteamVR "
+                  "driver - likely version mismatch. SteamVR error code: " +
+                  std::to_string(errCode)) {}
+    };
+
+    struct DriverNotLoaded : std::logic_error {
+        DriverNotLoaded()
+            : std::logic_error("Could not get interface: driver not loaded.") {}
+    };
+
+    /// Used to load (and own the handle to) a SteamVR driver DLL, as well
+    /// as retrieve the main entry point function and handle the its calling and
+    /// casting.
     class DriverLoader {
       public:
-        DriverLoader(std::string const &driverRoot,
-                     std::string const &driverFile);
+        /// Factory function to make a driver loader.
+        static std::unique_ptr<DriverLoader>
+        make(std::string const &driverRoot, std::string const &driverFile);
 
+        /// destructor - out of line to support unique_ptr-based pimpl.
         ~DriverLoader();
 
+        /// non-copyable
         DriverLoader(DriverLoader const &) = delete;
+        /// non-copy-assignable
         DriverLoader &operator=(DriverLoader const &) = delete;
 
-        /// Template function to call the factory with the right string and do
-        /// the right casting. Returns the pointer and the error code in a pair.
+        /// Could we load the driver?
+        explicit operator bool() const;
+
+        /// Is an HMD present? If we couldn't load the driver or some other
+        /// error case happens, we just return false from here.
+        bool
+        isHMDPresent(std::string const &userConfigDir = std::string(".")) const;
+
+        /// Template function to call the driver's main entry point with the
+        /// right string and do the right casting. Returns the pointer and
+        /// the error code in a pair.
         template <typename InterfaceType>
-        std::pair<InterfaceType *, int> invokeFactory() {
+        std::pair<InterfaceType *, int> getInterface() const {
+            static_assert(
+                InterfaceExpectedFromEntryPointTrait<InterfaceType>::value,
+                "Can only use this function for interface types expected to be "
+                "provided by the driver entry point.");
+
             InterfaceType *ret = nullptr;
             int returnCode = 0;
+            if (!(*this)) {
+                /// We've been reset or could never load.
+                return std::make_pair(ret, returnCode);
+            }
             void *product =
                 factory_(InterfaceNameTrait<InterfaceType>::get(), &returnCode);
             if (product) {
@@ -67,16 +111,40 @@ namespace vive {
             return std::make_pair(ret, returnCode);
         }
 
+        /// Similar to the above, except that it throws in case of failure,
+        /// instead of returning an error code. Thus, the pointer returned is
+        /// always non-null.
+        template <typename InterfaceType>
+        InterfaceType *getInterfaceThrowing() const {
+            auto pairRet = getInterface<InterfaceType>();
+            if (!(*this)) {
+                /// we early-out
+                throw DriverNotLoaded();
+            }
+            if (!pairRet.first) {
+                throw CouldNotGetInterface(pairRet.second);
+            }
+            return pairRet.first;
+        }
+
+        std::string const &getDriverRoot() const { return driverRoot_; }
+
+        /// Unload the DLL.
+        void reset();
+
       private:
+        DriverLoader(std::string const &driverRoot,
+                     std::string const &driverFile);
         using DriverFactory = void *(*)(const char *, int *);
         // typedef void *(DriverFactory)(const char *, int *);
 
         struct Impl;
         std::unique_ptr<Impl> impl_;
-
+        std::string driverRoot_;
         DriverFactory factory_;
     };
 
 } // namespace vive
 } // namespace osvr
+
 #endif // INCLUDED_DriverLoader_h_GUID_882F2FD5_F218_42BE_3088_31CF712EC455

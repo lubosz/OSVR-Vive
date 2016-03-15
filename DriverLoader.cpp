@@ -45,41 +45,73 @@ namespace vive {
 
     struct DriverLoader::Impl {
 #if defined(OSVR_WINDOWS)
-        HMODULE driver_;
+        HMODULE driver_ = nullptr;
 #else
 #endif
+        ~Impl() {
 
+#if defined(OSVR_WINDOWS)
+            if (driver_) {
+                FreeLibrary(driver_);
+            }
+#else
+#endif
+        }
     };
-    DriverLoader::DriverLoader(std::string const & driverRoot, std::string const & driverFile) : impl_(new Impl) {
+    DriverLoader::DriverLoader(std::string const &driverRoot,
+                               std::string const &driverFile)
+        : impl_(new Impl) {
         /// Set the PATH to include the driver directory so it can
         /// find its deps.
         SearchPathExtender extender(driverRoot);
 #if defined(OSVR_WINDOWS)
         impl_->driver_ = LoadLibraryA(driverFile.c_str());
-        /// @todo check for NULL
-        factory_ = reinterpret_cast<DriverFactory>(
-            GetProcAddress(impl_->driver_, ENTRY_POINT_FUNCTION_NAME));
+        if (!impl_->driver_) {
+            impl_.reset();
+            throw CouldNotLoadDriverModule();
+        }
+
+        auto proc = GetProcAddress(impl_->driver_, ENTRY_POINT_FUNCTION_NAME);
+        if (!proc) {
+            impl_.reset();
+            throw CouldNotLoadEntryPoint();
+        }
+        factory_ = reinterpret_cast<DriverFactory>(proc);
 #else
 #endif
-        auto ret = invokeFactory<vr::IClientTrackedDeviceProvider>();
+    }
+
+    std::unique_ptr<DriverLoader>
+    DriverLoader::make(std::string const &driverRoot,
+                       std::string const &driverFile) {
+        std::unique_ptr<DriverLoader> ret(
+            new DriverLoader(driverRoot, driverFile));
+        return ret;
+    }
+
+    DriverLoader::~DriverLoader() {}
+
+    DriverLoader::operator bool() const {
+        /// Presence of a valid private impl object is equivalent to validity of
+        /// the object overall.
+        return static_cast<bool>(impl_);
+    }
+
+    bool DriverLoader::isHMDPresent(std::string const &userConfigDir) const {
+        auto ret = getInterface<vr::IClientTrackedDeviceProvider>();
         if (ret.first) {
-            std::cout
-                << "Successfully got the IClientTrackedDeviceProvider!";
+            std::cout << "Successfully got the IClientTrackedDeviceProvider!";
             auto clientProvider = ret.first;
-            auto isPresent = clientProvider->BIsHmdPresent(".");
+            auto isPresent =
+                clientProvider->BIsHmdPresent(userConfigDir.c_str());
             std::cout << " is present? " << std::boolalpha << isPresent
-                << std::endl;
+                      << std::endl;
+            return isPresent;
         }
-        else {
-            std::cout << "Couldn't get it, error code " << ret.second
-                << std::endl;
-        }
+        std::cout << "Couldn't get it, error code " << ret.second << std::endl;
+        return false;
     }
-    DriverLoader::~DriverLoader() {
-#if defined(OSVR_WINDOWS)
-        FreeLibrary(impl_->driver_);
-#else
-#endif
-    }
+
+    void DriverLoader::reset() { impl_.reset(); }
 } // namespace vive
 } // namespace osvr

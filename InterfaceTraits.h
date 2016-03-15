@@ -33,10 +33,12 @@
 #include <openvr_driver.h>
 
 // Standard includes
-// - none
+#include <type_traits>
 
 namespace osvr {
 namespace vive {
+    /// Maps from the interface type (as provided by the entry point function)
+    /// to the name string used to retrieve it.
     template <typename InterfaceType> struct InterfaceNameTrait;
 
     template <> struct InterfaceNameTrait<vr::IClientTrackedDeviceProvider> {
@@ -49,6 +51,35 @@ namespace vive {
             return vr::IServerTrackedDeviceProvider_Version;
         }
     };
+
+    /// Maps from the interface type (as provided by the entry point function)
+    /// to the driver host type required by its init function.
+    template <typename InterfaceType> struct InterfaceHostTrait;
+
+    template <> struct InterfaceHostTrait<vr::IClientTrackedDeviceProvider> {
+        using type = vr::IClientDriverHost;
+    };
+    template <> struct InterfaceHostTrait<vr::IServerTrackedDeviceProvider> {
+        using type = vr::IServerDriverHost;
+    };
+
+    /// Alias for easier use, mapping from interface type to required driver
+    /// host type.
+    template <typename InterfaceType>
+    using InterfaceHost = typename InterfaceHostTrait<InterfaceType>::type;
+
+    /// Identifies whether we should expect an interface to be provided by the
+    /// driver entry point.
+    template <typename InterfaceType>
+    struct InterfaceExpectedFromEntryPointTrait : std::false_type {};
+
+    template <>
+    struct InterfaceExpectedFromEntryPointTrait<
+        vr::IClientTrackedDeviceProvider> : std::true_type {};
+
+    template <>
+    struct InterfaceExpectedFromEntryPointTrait<
+        vr::IServerTrackedDeviceProvider> : std::true_type {};
 
 } // namespace vive
 } // namespace osvr
