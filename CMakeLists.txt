@@ -46,8 +46,10 @@ osvr_convert_json(com_osvr_Vive_json
 osvr_add_plugin(com_osvr_Vive
     CPP
     com_osvr_Vive.cpp
-    ViveServerDriverHost.h
-    ViveServerDriverHost.cpp
+    VRSettings.h
+    VRSettings.cpp
+    ServerDriverHost.h
+    ServerDriverHost.cpp
     DriverLoader.cpp
     DriverLoader.h
     FindDriver.cpp
@@ -68,8 +70,8 @@ add_executable(ViveLoader
     InterfaceTraits.h
     SearchPathExtender.h
     ViveLoader.cpp
-    ViveServerDriverHost.cpp
-    ViveServerDriverHost.h)
+    ServerDriverHost.cpp
+    ServerDriverHost.h)
 
 target_link_libraries(ViveLoader PRIVATE OpenVRDriver osvr::osvrUtil JsonCpp::JsonCpp filesystem_lib)
 target_include_directories(ViveLoader PRIVATE ${Boost_INCLUDE_DIRS})
