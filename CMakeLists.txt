@@ -21,6 +21,8 @@ target_include_directories(OpenVRDriver INTERFACE "${CMAKE_CURRENT_SOURCE_DIR}/v
 
 # Build the project
 add_executable(ViveLoader
+    DriverLoader.cpp
+    DriverLoader.h
     FindDriver.cpp
     FindDriver.h
     InterfaceTraits.h
