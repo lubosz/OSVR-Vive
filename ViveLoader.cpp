@@ -23,15 +23,17 @@
 // limitations under the License.
 
 // Internal Includes
+#include "FindDriver.h"
+#include "InterfaceTraits.h"
+#include "SearchPathExtender.h"
 
 // Library/third-party includes
 #include <openvr_driver.h>
 #include <osvr/Util/PlatformConfig.h>
 
 // Standard includes
+#include <cstdlib>
 #include <iostream>
-#include <limits.h>
-#include <string>
 #include <vector>
 
 #if _WIN32
@@ -39,122 +41,52 @@
 #include <windows.h>
 #endif
 
-#if _MSC_VER >= 1800
-#include <filesystem>
-#else
-#include <boost/filesystem.hpp>
-#endif
-
-#if defined(OSVR_WINDOWS)
-static const auto DRIVER_DIRNAME_BASE = "win";
-static const auto DRIVER_EXTENSION = ".dll";
-#elif defined(OSVR_MACOSX)
-/// @todo Note that there are no 64-bit steamvr runtimes or drivers on OS X
-static const auto DRIVER_DIRNAME_BASE = "osx";
-#elif defined(OSVR_LINUX)
-static const auto DRIVER_DIRNAME_BASE = "linux";
-#else
-#error "Sorry, Valve does not produce a SteamVR runtime for your platform."
-#endif
-
-static const auto DRIVER_NAME = "lighthouse";
-
-inline std::string getDriverDirname() {
-    return DRIVER_DIRNAME_BASE + std::to_string(sizeof(void *) * CHAR_BIT);
-}
-
 namespace osvr {
 namespace vive {
-
-#if _MSC_VER == 1800 || _MSC_VER == 1900
-    using std::tr2::sys::path;
-    using std::tr2::sys::exists;
-#else
-    using boost::filesystem::path;
-    using boost::filesystem::exists;
-#endif
-
-#if defined(OSVR_WINDOWS)
-
-    inline std::vector<path> getSteamVRRoots() {
-        /// @todo make this better - there's Windows API for that.
-        return std::vector<path>{
-            path{"C:\\Program Files\\Steam\\steamapps\\common\\SteamVR"},
-            path{"C:\\Program "
-                 "Files (x86)\\Steam\\steamapps\\common\\SteamVR"}};
-    }
-#elif defined(OSVR_MACOSX)
-    inline std::vector<path> getSteamVRRoots() {
-#error "implementation not complete"
-    }
-#elif defined(OSVR_LINUX)
-
-    inline std::vector<path> getSteamVRRoots() {
-#error "implementation not complete"
-    }
-#endif
-
-    inline path getDriverFilePath(path const &root) {
-        auto p = root;
-        p /= "drivers";
-        p /= DRIVER_NAME;
-        p /= "bin";
-        p /= getDriverDirname();
-        p /= (std::string("driver_") + DRIVER_NAME + DRIVER_EXTENSION);
-        return p;
-    }
-
-    inline path getDriverFilePath() {
-        for (auto &root : getSteamVRRoots()) {
-            auto driverFile = getDriverFilePath(root);
-            if (exists(driverFile)) {
-                return driverFile;
-            }
-        }
-        return path{};
-    }
-
-    std::string tryLoading() {
-        auto driverFile = getDriverFilePath();
-        std::cout << "Will try to load driver from:\n"
-                  << driverFile.string() << std::endl;
-        if (exists(driverFile)) {
-            std::cout << "It exists!" << std::endl;
-            return driverFile.string();
-        }
-        std::cout << "It doesn't exist." << std::endl;
-        return std::string();
-    }
 
     static const auto ENTRY_POINT_FUNCTION_NAME = "HmdDriverFactory";
     class ViveLoader {
       public:
-        ViveLoader(std::string const& driverRoot, std::string const &driverFile) {
-#if defined(OSVR_WINDOWS)
-            /// @todo Set the PATH to include the driver directory so it can
+        ViveLoader(std::string const &driverRoot,
+                   std::string const &driverFile) {
+            /// Set the PATH to include the driver directory so it can
             /// find its deps.
+            SearchPathExtender extender(driverRoot);
+#if defined(OSVR_WINDOWS)
             driver_ = LoadLibraryA(driverFile.c_str());
             /// @todo check for NULL
             factory_ = reinterpret_cast<DriverFactory>(
                 GetProcAddress(driver_, ENTRY_POINT_FUNCTION_NAME));
 #else
 #endif
-            int returnCode = 0;
-            void *ret =
-                factory_(vr::IClientTrackedDeviceProvider_Version, &returnCode);
-            if (ret) {
+            auto ret = invokeFactory<vr::IClientTrackedDeviceProvider>();
+            if (ret.first) {
                 std::cout
                     << "Successfully got the IClientTrackedDeviceProvider!";
-                auto clientProvider =
-                    static_cast<vr::IClientTrackedDeviceProvider *>(ret);
+                auto clientProvider = ret.first;
                 auto isPresent = clientProvider->BIsHmdPresent(".");
                 std::cout << " is present? " << std::boolalpha << isPresent
                           << std::endl;
             } else {
-                std::cout << "Couldn't get it, error code " << returnCode
+                std::cout << "Couldn't get it, error code " << ret.second
                           << std::endl;
             }
         }
+
+        /// Template function to call the factory with the right string and do
+        /// the right casting. Returns the pointer and the error code in a pair.
+        template <typename InterfaceType>
+        std::pair<InterfaceType *, int> invokeFactory() {
+            InterfaceType *ret = nullptr;
+            int returnCode = 0;
+            void *product =
+                factory_(InterfaceNameTrait<InterfaceType>::get(), &returnCode);
+            if (product) {
+                ret = static_cast<InterfaceType *>(product);
+            }
+            return std::make_pair(ret, returnCode);
+        }
+
         ~ViveLoader() {
 #if defined(OSVR_WINDOWS)
             FreeLibrary(driver_);
@@ -176,7 +108,17 @@ namespace vive {
 } // namespace osvr
 
 int main() {
-    auto driverLocation = osvr::vive::tryLoading();
-    osvr::vive::ViveLoader vive("", driverLocation);
+    auto driverLocation = osvr::vive::findDriver();
+    if (driverLocation.found) {
+        std::cout << "Found the Vive driver at " << driverLocation.driverFile
+                  << std::endl;
+    } else {
+        std::cout << "Could not find the native SteamVR Vive driver, exiting!"
+                  << std::endl;
+        return 1;
+    }
+
+    osvr::vive::ViveLoader vive(driverLocation.driverRoot,
+                                driverLocation.driverFile);
     return 0;
 }
