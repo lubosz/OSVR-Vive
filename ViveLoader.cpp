@@ -33,7 +33,10 @@
 #include <osvr/Util/PlatformConfig.h>
 
 // Standard includes
+#include <chrono>
+#include <fstream>
 #include <iostream>
+#include <thread>
 
 namespace osvr {
 namespace vive {} // namespace vive
@@ -52,13 +55,47 @@ int main() {
 
     auto vive = osvr::vive::DriverLoader::make(driverLocation.driverRoot,
                                                driverLocation.driverFile);
-    if (vive->isHMDPresent()) {
-        std::cout << "Vive is connected." << std::endl;
+    if (!*vive) {
+        std::cout << "Could not open driver." << std::endl;
+        return 1;
+    }
+    auto configDirs = osvr::vive::findConfigDirs(driverLocation);
+#if 0
+    {
+        std::ofstream os("test.txt");
+        os << configDirs.rootConfigDir << "---\n\n\n---" << configDirs.driverConfigDir << std::flush;
+        os.close();
+    }
+    return 0;
+#endif
+
+    std::cout << "*** Config dir is:\n"
+              << configDirs.driverConfigDir << std::endl;
+    if (vive->isHMDPresent(configDirs.rootConfigDir)) {
+        std::cout << "*** Vive is connected." << std::endl;
+
         std::unique_ptr<vr::ViveServerDriverHost> serverDriverHost(
             new vr::ViveServerDriverHost);
 
-        osvr::vive::getProvider<vr::IServerTrackedDeviceProvider>(
-            std::move(vive), nullptr, serverDriverHost.get(), ".");
+        auto serverDeviceProvider =
+            osvr::vive::getProvider<vr::IServerTrackedDeviceProvider>(
+                std::move(vive), nullptr, serverDriverHost.get(),
+                configDirs.driverConfigDir);
+
+        /// Power the system up.
+        serverDeviceProvider->LeaveStandby();
+        auto numDevices = serverDeviceProvider->GetTrackedDeviceCount();
+        std::cout << "*** Got " << numDevices << " tracked devices"
+                  << std::endl;
+
+        std::cout << "*** Entering dummy mainloop" << std::endl;
+        for (int i = 0; i < 3000; ++i) {
+            serverDeviceProvider->RunFrame();
+            std::this_thread::sleep_for(std::chrono::milliseconds(1));
+        }
+        std::cout << "*** Done with dummy mainloop" << std::endl;
+        /// Warn of shutdown moments before it will occur (at end of scope)
+        serverDriverHost->setExiting();
     }
     return 0;
 }
