@@ -24,8 +24,9 @@
 
 // Internal Includes
 #include "DriverLoader.h"
-#include "GetProvider.h"
 #include "FindDriver.h"
+#include "GetProvider.h"
+#include "ViveServerDriverHost.h"
 
 // Library/third-party includes
 #include <openvr_driver.h>
@@ -53,8 +54,11 @@ int main() {
                                                driverLocation.driverFile);
     if (vive->isHMDPresent()) {
         std::cout << "Vive is connected." << std::endl;
+        std::unique_ptr<vr::ViveServerDriverHost> serverDriverHost(
+            new vr::ViveServerDriverHost);
+
         osvr::vive::getProvider<vr::IServerTrackedDeviceProvider>(
-            std::move(vive), nullptr, nullptr, ".");
+            std::move(vive), nullptr, serverDriverHost.get(), ".");
     }
     return 0;
 }

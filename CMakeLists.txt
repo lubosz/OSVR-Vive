@@ -67,7 +67,9 @@ add_executable(ViveLoader
     FindDriver.h
     InterfaceTraits.h
     SearchPathExtender.h
-    ViveLoader.cpp)
+    ViveLoader.cpp
+    ViveServerDriverHost.cpp
+    ViveServerDriverHost.h)
 
 target_link_libraries(ViveLoader PRIVATE OpenVRDriver osvr::osvrUtil JsonCpp::JsonCpp filesystem_lib)
 target_include_directories(ViveLoader PRIVATE ${Boost_INCLUDE_DIRS})
