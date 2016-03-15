@@ -22,8 +22,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#ifndef INCLUDED_DriverProviderOwner_h_GUID_299C10C7_DE4D_4DB0_14DB_5CCAC70F3C11
-#define INCLUDED_DriverProviderOwner_h_GUID_299C10C7_DE4D_4DB0_14DB_5CCAC70F3C11
+#ifndef INCLUDED_GetProvider_h_GUID_299C10C7_DE4D_4DB0_14DB_5CCAC70F3C11
+#define INCLUDED_GetProvider_h_GUID_299C10C7_DE4D_4DB0_14DB_5CCAC70F3C11
 
 // Internal Includes
 #include "DriverLoader.h"
@@ -101,4 +101,5 @@ namespace vive {
     }
 } // namespace vive
 } // namespace osvr
-#endif // INCLUDED_DriverProviderOwner_h_GUID_299C10C7_DE4D_4DB0_14DB_5CCAC70F3C11
+
+#endif // INCLUDED_GetProvider_h_GUID_299C10C7_DE4D_4DB0_14DB_5CCAC70F3C11

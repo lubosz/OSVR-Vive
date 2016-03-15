@@ -24,7 +24,7 @@
 
 // Internal Includes
 #include "DriverLoader.h"
-#include "DriverProviderOwner.h"
+#include "GetProvider.h"
 #include "FindDriver.h"
 
 // Library/third-party includes
