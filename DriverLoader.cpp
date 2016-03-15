@@ -67,13 +67,13 @@ namespace vive {
 #if defined(OSVR_WINDOWS)
         impl_->driver_ = LoadLibraryA(driverFile.c_str());
         if (!impl_->driver_) {
-            impl_.reset();
+            reset();
             throw CouldNotLoadDriverModule();
         }
 
         auto proc = GetProcAddress(impl_->driver_, ENTRY_POINT_FUNCTION_NAME);
         if (!proc) {
-            impl_.reset();
+            reset();
             throw CouldNotLoadEntryPoint();
         }
         factory_ = reinterpret_cast<DriverFactory>(proc);
@@ -89,7 +89,7 @@ namespace vive {
         return ret;
     }
 
-    DriverLoader::~DriverLoader() {}
+    DriverLoader::~DriverLoader() { reset(); }
 
     DriverLoader::operator bool() const {
         /// Presence of a valid private impl object is equivalent to validity of
@@ -100,18 +100,33 @@ namespace vive {
     bool DriverLoader::isHMDPresent(std::string const &userConfigDir) const {
         auto ret = getInterface<vr::IClientTrackedDeviceProvider>();
         if (ret.first) {
-            std::cout << "Successfully got the IClientTrackedDeviceProvider!";
+            // std::cout << "Successfully got the
+            // IClientTrackedDeviceProvider!";
             auto clientProvider = ret.first;
             auto isPresent =
                 clientProvider->BIsHmdPresent(userConfigDir.c_str());
-            std::cout << " is present? " << std::boolalpha << isPresent
-                      << std::endl;
+            // std::cout << " is present? " << std::boolalpha << isPresent
+            //          << std::endl;
             return isPresent;
         }
-        std::cout << "Couldn't get it, error code " << ret.second << std::endl;
+        // std::cout << "Couldn't get it, error code " << ret.second <<
+        // std::endl;
         return false;
     }
 
-    void DriverLoader::reset() { impl_.reset(); }
+    void DriverLoader::reset() {
+        if (cleanup_) {
+            std::cout << "osvr::vive::DriverLoader::reset() - cleaning "
+                         "up main provider"
+                      << std::endl;
+            cleanup_();
+            cleanup_ = std::function<void()>{};
+        }
+        if (impl_) {
+            std::cout << "osvr::vive::DriverLoader::reset() - unloading driver"
+                      << std::endl;
+            impl_.reset();
+        }
+    }
 } // namespace vive
 } // namespace osvr

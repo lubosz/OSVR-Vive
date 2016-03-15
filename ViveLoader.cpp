@@ -24,6 +24,7 @@
 
 // Internal Includes
 #include "DriverLoader.h"
+#include "DriverProviderOwner.h"
 #include "FindDriver.h"
 
 // Library/third-party includes
@@ -31,14 +32,7 @@
 #include <osvr/Util/PlatformConfig.h>
 
 // Standard includes
-#include <cstdlib>
 #include <iostream>
-#include <vector>
-
-#if _WIN32
-#define WIN32_LEAN_AND_MEAN
-#include <windows.h>
-#endif
 
 namespace osvr {
 namespace vive {} // namespace vive
@@ -57,5 +51,10 @@ int main() {
 
     auto vive = osvr::vive::DriverLoader::make(driverLocation.driverRoot,
                                                driverLocation.driverFile);
+    if (vive->isHMDPresent()) {
+        std::cout << "Vive is connected." << std::endl;
+        osvr::vive::getProvider<vr::IServerTrackedDeviceProvider>(
+            std::move(vive), nullptr, nullptr, ".");
+    }
     return 0;
 }

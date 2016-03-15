@@ -35,6 +35,7 @@
 #include <memory>
 #include <stdexcept>
 #include <string>
+#include <functional>
 
 namespace osvr {
 namespace vive {
@@ -60,6 +61,12 @@ namespace vive {
     struct DriverNotLoaded : std::logic_error {
         DriverNotLoaded()
             : std::logic_error("Could not get interface: driver not loaded.") {}
+    };
+
+    struct AlreadyCleaningUpAnInterface : std::logic_error {
+        AlreadyCleaningUpAnInterface()
+            : std::logic_error("Already responsible for cleaning up an "
+                               "interface: can't clean up two.") {}
     };
 
     /// Used to load (and own the handle to) a SteamVR driver DLL, as well
@@ -129,6 +136,17 @@ namespace vive {
 
         std::string const &getDriverRoot() const { return driverRoot_; }
 
+        /// This object can execute Cleanup on one interface during its
+        /// destruction. This will set that interface. Usually not called
+        /// directly by a user.
+        template <typename InterfaceType>
+        void cleanupInterfaceOnDestruction(InterfaceType *iface) {
+            if (cleanup_) {
+                throw AlreadyCleaningUpAnInterface();
+            }
+            cleanup_ = [iface] { iface->Cleanup(); };
+        }
+
         /// Unload the DLL.
         void reset();
 
@@ -142,6 +160,7 @@ namespace vive {
         std::unique_ptr<Impl> impl_;
         std::string driverRoot_;
         DriverFactory factory_;
+        std::function<void()> cleanup_;
     };
 
 } // namespace vive
