@@ -22,9 +22,6 @@
 // Internal Includes
 #include <osvr/PluginKit/PluginKit.h>
 #include <osvr/PluginKit/TrackerInterfaceC.h>
-#include <ViveClientDriver.h>
-#include <ViveDeviceDriver.h>
-#include <ViveServerDriver.h>
 
 // Generated JSON header file
 #include "com_osvr_Vive_json.h"
@@ -87,8 +84,6 @@ class HardwareDetection {
 
   private:
     bool m_found;
-    ViveServerDriver m_serverDriver;
-    ViveClientDriver m_clientDriver;
 };
 } // namespace
 
