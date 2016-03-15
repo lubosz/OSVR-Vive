@@ -39,6 +39,10 @@ else()
 endif()
 
 # Build the plugin
+
+osvr_convert_json(com_osvr_Vive_json
+    com_osvr_Vive.json
+    "${CMAKE_CURRENT_BINARY_DIR}/com_osvr_Vive_json.h")
 osvr_add_plugin(com_osvr_Vive
     CPP
     com_osvr_Vive.cpp
