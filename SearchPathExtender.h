@@ -62,15 +62,30 @@ namespace vive {
     class SearchPathExtender {
       public:
         explicit SearchPathExtender(std::string const &additionalDir) {
-
+#ifdef _MSC_VER
+            char buf[1024 * 64];
+            size_t spaceRequired;
+            auto ret = getenv_s(&spaceRequired, buf, SEARCH_PATH_ENV);
+            if (0 == ret) {
+                // OK, we got it.
+                before_ = std::string{buf};
+            }
+#else // not microsoft runtime specific
             auto initialRet = std::getenv(SEARCH_PATH_ENV);
             if (nullptr == initialRet) {
                 nullBefore_ = true;
             } else {
                 before_ = initialRet;
             }
+#endif
             auto newValue = additionalDir +
                             (before_.empty() ? "" : SEARCH_PATH_SEP) + before_;
+
+#if 0
+            std::cout << "Extending " << SEARCH_PATH_ENV << "\n";
+            std::cout << "Before: " << before_ << "\n\n";
+            std::cout << "After:  " << newValue << "\n\n" << std::endl;
+#endif
             wrappedPutenv(newValue);
         }
 
