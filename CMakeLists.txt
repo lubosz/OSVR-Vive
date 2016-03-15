@@ -46,6 +46,14 @@ osvr_convert_json(com_osvr_Vive_json
 osvr_add_plugin(com_osvr_Vive
     CPP
     com_osvr_Vive.cpp
+    ViveServerDriverHost.h
+    ViveServerDriverHost.cpp
+    DriverLoader.cpp
+    DriverLoader.h
+    FindDriver.cpp
+    FindDriver.h
+    InterfaceTraits.h
+    SearchPathExtender.h
     "${CMAKE_CURRENT_BINARY_DIR}/com_osvr_Vive_json.h")
 
 target_link_libraries(com_osvr_Vive OpenVRDriver)
