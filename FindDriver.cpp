@@ -26,6 +26,8 @@
 #include "FindDriver.h"
 
 // Library/third-party includes
+#include <boost/iostreams/stream.hpp>
+#include <boost/process.hpp>
 #include <osvr/Util/PlatformConfig.h>
 
 // Standard includes
@@ -39,24 +41,26 @@
 #include <boost/filesystem.hpp>
 #endif
 
+namespace osvr {
+namespace vive {
 #if defined(OSVR_WINDOWS)
-static const auto PLATFORM_DIRNAME_BASE = "win";
-static const auto DRIVER_EXTENSION = ".dll";
-static const auto TOOL_EXTENSION = ".exe";
+    static const auto PLATFORM_DIRNAME_BASE = "win";
+    static const auto DRIVER_EXTENSION = ".dll";
+    static const auto TOOL_EXTENSION = ".exe";
+    static const auto PATH_SEP = "\\";
 #elif defined(OSVR_MACOSX)
-/// @todo Note that there are no 64-bit steamvr runtimes or drivers on OS X
-static const auto PLATFORM_DIRNAME_BASE = "osx";
-static const auto TOOL_EXTENSION = "";
+    /// @todo Note that there are no 64-bit steamvr runtimes or drivers on OS X
+    static const auto PLATFORM_DIRNAME_BASE = "osx";
+    static const auto TOOL_EXTENSION = "";
+    static const auto PATH_SEP = "/";
 #elif defined(OSVR_LINUX)
-static const auto PLATFORM_DIRNAME_BASE = "linux";
-static const auto DRIVER_EXTENSION = ".so";
-static const auto TOOL_EXTENSION = "";
+    static const auto PLATFORM_DIRNAME_BASE = "linux";
+    static const auto DRIVER_EXTENSION = ".so";
+    static const auto TOOL_EXTENSION = "";
+    static const auto PATH_SEP = "/";
 #else
 #error "Sorry, Valve does not produce a SteamVR runtime for your platform."
 #endif
-
-namespace osvr {
-namespace vive {
 
 #if _MSC_VER == 1800 || _MSC_VER == 1900
     using std::tr2::sys::path;
@@ -106,6 +110,8 @@ namespace vive {
         DriverLocationInfo info;
         for (auto &root : getSteamVRRoots()) {
             info.steamVrRoot = root;
+            info.driverName = driver;
+
             computeDriverRootAndFilePath(info, driver);
 
             std::cout << "Will try to load driver from:\n"
@@ -145,6 +151,64 @@ namespace vive {
             }
         }
         return std::string{};
+    }
+
+    ConfigDirs findConfigDirs(std::string const &steamVrRoot,
+                              std::string const &driver) {
+        static const auto LINE_PREFIX = "Config path = ";
+        ConfigDirs ret;
+        bool foundLine = false;
+        auto vrpathregFile =
+            osvr::vive::getToolLocation("vrpathreg", steamVrRoot);
+        if (vrpathregFile.empty()) {
+            return ret;
+        }
+        std::string pathLine;
+        {
+            using namespace boost::process;
+            using namespace boost::process::initializers;
+            using namespace boost::iostreams;
+            auto p = create_pipe();
+            file_descriptor_sink sink(p.sink, close_handle);
+            auto c = execute(run_exe(vrpathregFile),
+#ifdef _WIN32
+
+                             show_window(SW_HIDE),
+#endif
+                             bind_stdout(sink), bind_stderr(sink));
+
+            file_descriptor_source source(p.source, close_handle);
+            stream<file_descriptor_source> is(source);
+
+            for (int i = 0; i < 4; ++i) {
+                std::getline(is, pathLine);
+                if (pathLine.find(LINE_PREFIX) != std::string::npos) {
+                    foundLine = true;
+                    break;
+                }
+            }
+            wait_for_exit(c);
+        }
+        if (!foundLine) {
+            return ret;
+        }
+        while (!pathLine.empty() &&
+               (pathLine.back() == '\r' || pathLine.back() == '\n')) {
+            pathLine.pop_back();
+        }
+        std::cout << "Path line is: " << pathLine << std::endl;
+        auto prefixLoc = pathLine.find(LINE_PREFIX);
+        auto sub = pathLine.substr(std::string(LINE_PREFIX).size() + prefixLoc);
+        std::cout << "substring is: " << sub << std::endl;
+        ret.rootConfigDir = sub;
+        ret.driverConfigDir = sub + PATH_SEP + driver;
+
+        if (exists(path{ret.rootConfigDir})) {
+            std::cout << "root config dir exists" << std::endl;
+            ret.valid = true;
+        }
+
+        return ret;
     }
 
 } // namespace vive

@@ -23,42 +23,149 @@
 // limitations under the License.
 
 // Internal Includes
-#include "DriverLoader.h"
-#include "FindDriver.h"
-#include "GetProvider.h"
-#include "ServerDriverHost.h"
+#include "DriverWrapper.h"
 
 // Library/third-party includes
 #include <openvr_driver.h>
-#include <osvr/Util/PlatformConfig.h>
 
 // Standard includes
+#include <chrono>
 #include <iostream>
+#include <string>
+#include <thread>
+#include <vector>
 
 namespace osvr {
 namespace vive {} // namespace vive
 } // namespace osvr
 
+static const auto PREFIX = "[ViveLoader] ";
+static void whatIsThisDevice(vr::ITrackedDeviceServerDriver *dev) {
+    {
+        auto disp = osvr::vive::getComponent<vr::IVRDisplayComponent>(dev);
+        if (disp) {
+            std::cout << PREFIX << "-- it's a display, too!" << std::endl;
+        }
+    }
+
+    {
+        auto controller =
+            osvr::vive::getComponent<vr::IVRControllerComponent>(dev);
+        if (controller) {
+            std::cout << PREFIX << "-- it's a controller, too!" << std::endl;
+        }
+    }
+
+    {
+        auto cam = osvr::vive::getComponent<vr::IVRCameraComponent>(dev);
+        if (cam) {
+            std::cout << PREFIX << "-- it's a camera, too!" << std::endl;
+        }
+    }
+    std::cout << "\n";
+}
+
 int main() {
-    auto driverLocation = osvr::vive::findDriver();
-    if (driverLocation.found) {
-        std::cout << "Found the Vive driver at " << driverLocation.driverFile
+    auto vive = osvr::vive::DriverWrapper();
+
+    /// These lines are just informational printout - the real check is later -
+    /// if (!vive)
+    if (vive.foundDriver()) {
+        std::cout << PREFIX << "Found the Vive driver at "
+                  << vive.getDriverFileLocation() << std::endl;
+    }
+
+    if (!vive.haveDriverLoaded()) {
+        std::cout << PREFIX << "Could not open driver." << std::endl;
+    }
+
+    if (vive.foundConfigDirs()) {
+        std::cout << PREFIX
+                  << "Driver config dir is: " << vive.getDriverConfigDir()
                   << std::endl;
-    } else {
-        std::cout << "Could not find the native SteamVR Vive driver, exiting!"
+    }
+
+    if (!vive) {
+        std::cerr << PREFIX
+                  << "Error in first-stage Vive driver startup. Exiting"
                   << std::endl;
         return 1;
     }
 
-    auto vive = osvr::vive::DriverLoader::make(driverLocation.driverRoot,
-                                               driverLocation.driverFile);
-    if (vive->isHMDPresent()) {
-        std::cout << "Vive is connected." << std::endl;
-        std::unique_ptr<vr::ServerDriverHost> serverDriverHost(
-            new vr::ServerDriverHost);
-
-        osvr::vive::getProvider<vr::IServerTrackedDeviceProvider>(
-            std::move(vive), nullptr, serverDriverHost.get(), ".");
+    if (!vive.isHMDPresent()) {
+        std::cerr << PREFIX
+                  << "Driver loaded, but no Vive is connected. Exiting"
+                  << std::endl;
+        return 0;
     }
+
+    std::cout << PREFIX << "Vive is connected." << std::endl;
+
+    if (!vive.startServerDeviceProvider()) {
+        // can either check return value of this, or do another if (!vive) after
+        // calling - equivalent.
+        std::cerr << PREFIX
+                  << "Error: could not start the server device provider in the "
+                     "Vive driver. Exiting."
+                  << std::endl;
+        return 1;
+    }
+
+    /// but now, we can do things with vive.serverDevProvider()
+
+    /// Power the system up.
+    vive.serverDevProvider().LeaveStandby();
+
+    std::vector<std::string> knownSerialNumbers;
+    auto handleNewDevice = [&](const char *serialNum) {
+        auto dev = vive.serverDevProvider().FindTrackedDeviceDriver(
+            serialNum, vr::ITrackedDeviceServerDriver_Version);
+        if (!dev) {
+            std::cout << PREFIX
+                      << "Couldn't find the corresponding device driver for "
+                      << serialNum << std::endl;
+            return false;
+        }
+        auto ret = vive.addAndActivateDevice(dev);
+        if (!ret.first) {
+            std::cout << PREFIX << "Device with serial number " << serialNum
+                      << " couldn't be added to the devices vector."
+                      << std::endl;
+            return false;
+        }
+        std::cout << "\n"
+                  << PREFIX << "Device with s/n " << serialNum
+                  << " activated, assigned ID " << ret.second << std::endl;
+        whatIsThisDevice(dev);
+        return true;
+    };
+
+    vive.driverHost().onTrackedDeviceAdded = handleNewDevice;
+
+    {
+        auto numDevices = vive.serverDevProvider().GetTrackedDeviceCount();
+        std::cout << PREFIX << "Got " << numDevices
+                  << " tracked devices at startup" << std::endl;
+        for (decltype(numDevices) i = 0; i < numDevices; ++i) {
+            auto dev = vive.serverDevProvider().GetTrackedDeviceDriver(
+                i, vr::ITrackedDeviceServerDriver_Version);
+            vive.addAndActivateDevice(dev);
+            std::cout << PREFIX << "Device " << i << std::endl;
+            whatIsThisDevice(dev);
+        }
+    }
+
+    std::cout << "*** Entering dummy mainloop" << std::endl;
+    for (int i = 0; i < 200; ++i) {
+        vive.serverDevProvider().RunFrame();
+        std::this_thread::sleep_for(std::chrono::milliseconds(1));
+    }
+
+    /// The vive object will automatically deactivate all of them.
+
+    /// This line will turn off the wireless wands.
+    // vive.serverDevProvider().EnterStandby();
+
+    std::cout << "*** Done with dummy mainloop" << std::endl;
     return 0;
 }

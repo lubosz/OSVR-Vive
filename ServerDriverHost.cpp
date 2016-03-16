@@ -48,6 +48,9 @@ vr::ServerDriverHost::ServerDriverHost() {}
 
 bool ServerDriverHost::TrackedDeviceAdded(const char *pchDeviceSerialNumber) {
     LOG_EVENTS("TrackedDeviceAdded(" << pchDeviceSerialNumber << ")");
+    if (onTrackedDeviceAdded) {
+        return onTrackedDeviceAdded(pchDeviceSerialNumber);
+    }
     return true;
 }
 
