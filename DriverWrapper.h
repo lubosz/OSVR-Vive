@@ -35,13 +35,17 @@
 // - none
 
 // Standard includes
+#include <cstdint>
 #include <memory>
 #include <stdexcept>
+#include <vector>
 
 namespace osvr {
 namespace vive {
     class DriverWrapper {
       public:
+        using DriverVector = std::vector<vr::ITrackedDeviceServerDriver *>;
+
         DriverWrapper()
             : serverDriverHost_(new vr::ViveServerDriverHost),
               driverLocation_(findDriver()) {
@@ -55,7 +59,15 @@ namespace vive {
             }
             configDirs_ = findConfigDirs(driverLocation_);
         }
-        ~DriverWrapper() { serverDriverHost_->setExiting(); }
+
+        ~DriverWrapper() {
+            serverDriverHost_->setExiting();
+            if (deactivateOnShutdown_) {
+                for (auto &dev : devices_) {
+                    dev->Deactivate();
+                }
+            }
+        }
 
         DriverWrapper(DriverWrapper const &) = delete;
         DriverWrapper &operator=(DriverWrapper const &) = delete;
@@ -136,6 +148,32 @@ namespace vive {
             return *serverDeviceProvider_;
         }
 
+        vr::ViveServerDriverHost &driverHost() const {
+            return *serverDriverHost_;
+        }
+
+        DriverVector const &devices() const { return devices_; }
+
+        std::pair<bool, std::uint32_t>
+        addAndActivateDevice(vr::ITrackedDeviceServerDriver *dev) {
+            /// check to make sure it's not already in there?
+            auto it = std::find(begin(devices_), end(devices_), dev);
+            if (it != end(devices_)) {
+                return std::make_pair(false, 0);
+            }
+            auto newId = static_cast<std::uint32_t>(devices_.size());
+            devices_.push_back(dev);
+            dev->Activate(newId);
+            return std::make_pair(true, newId);
+        }
+
+        /// Set whether all devices should be deactivated on shutdown - defaults
+        /// to true, so you might just want to set to false if, for instance,
+        /// you deactivate and power off the devices on shutdown yourself.
+        void shouldDeactivateDeviceOnShutdown(bool deactivate) {
+            deactivateOnShutdown_ = deactivate;
+        }
+
       private:
         std::unique_ptr<vr::ViveServerDriverHost> serverDriverHost_;
 
@@ -144,6 +182,10 @@ namespace vive {
 
         std::unique_ptr<DriverLoader> loader_;
         ProviderPtr<vr::IServerTrackedDeviceProvider> serverDeviceProvider_;
+
+        DriverVector devices_;
+
+        bool deactivateOnShutdown_ = true;
     };
 } // namespace vive
 } // namespace osvr

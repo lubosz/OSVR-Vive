@@ -33,7 +33,7 @@
 #include <openvr_driver.h>
 
 // Standard includes
-// - none
+#include <functional>
 
 // refer to IServerDriverHost for details on each function
 // maybe add Constructor to use ClientContext
@@ -46,6 +46,7 @@ class ViveServerDriverHost : public vr::IServerDriverHost {
     void setExiting() { isExiting_ = true; }
 
     virtual bool TrackedDeviceAdded(const char *pchDeviceSerialNumber);
+    std::function<bool(const char *)> onTrackedDeviceAdded;
 
     virtual void TrackedDevicePoseUpdated(uint32_t unWhichDevice,
                                           const DriverPose_t &newPose);
