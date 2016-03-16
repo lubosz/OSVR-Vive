@@ -66,6 +66,7 @@ target_link_libraries(com_osvr_Vive OpenVRDriver boost_process)
 add_executable(ViveLoader
     DriverLoader.cpp
     DriverLoader.h
+    DriverWrapper.h
     GetProvider.h
     FindDriver.cpp
     FindDriver.h
