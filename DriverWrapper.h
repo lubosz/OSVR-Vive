@@ -35,8 +35,8 @@
 // - none
 
 // Standard includes
-#include <stdexcept>
 #include <memory>
+#include <stdexcept>
 
 namespace osvr {
 namespace vive {
@@ -76,7 +76,15 @@ namespace vive {
 
         bool foundDriver() const { return driverLocation_.found; }
 
+        std::string const &getDriverFileLocation() const {
+            return driverLocation_.driverFile;
+        }
+
         bool foundConfigDirs() const { return configDirs_.valid; }
+
+        std::string const &getDriverConfigDir() const {
+            return configDirs_.driverConfigDir;
+        }
 
         bool haveDriverLoaded() const {
             // only one of these pointers will ever be initialized at a time,
