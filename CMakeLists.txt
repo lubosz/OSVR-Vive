@@ -15,11 +15,15 @@ if(WIN32 OR ANDROID)
 endif()
 find_package(osvr REQUIRED)
 find_package(JsonCpp REQUIRED)
-find_package(Boost)
+find_package(Boost REQUIRED COMPONENTS system iostreams filesystem)
 
 # Interface target for the openvr_driver.h header we'll use to interact with the target driver.
 add_library(OpenVRDriver INTERFACE)
 target_include_directories(OpenVRDriver INTERFACE "${CMAKE_CURRENT_SOURCE_DIR}/vendor/openvr/headers")
+
+add_library(boost_process INTERFACE)
+target_include_directories(boost_process INTERFACE "${CMAKE_CURRENT_SOURCE_DIR}/vendor/boost-process" ${Boost_INCLUDE_DIRS})
+target_link_libraries(boost_process INTERFACE ${Boost_SYSTEM_LIBRARIES} ${Boost_IOSTREAMS_LIBRARIES} ${Boost_FILESYSTEM_LIBRARIES})
 
 # Interface target for some sort of filesystem functionality
 if(MSVC AND NOT MSVC_VERSION LESS 1800)
