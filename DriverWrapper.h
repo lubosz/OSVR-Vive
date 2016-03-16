@@ -29,7 +29,7 @@
 #include "DriverLoader.h"
 #include "FindDriver.h"
 #include "GetProvider.h"
-#include "ViveServerDriverHost.h"
+#include "ServerDriverHost.h"
 
 // Library/third-party includes
 // - none
@@ -46,8 +46,26 @@ namespace vive {
       public:
         using DriverVector = std::vector<vr::ITrackedDeviceServerDriver *>;
 
+        /// Constructor for when you have your own subclass of ServerDriverHost
+        /// to pass in.
+        explicit DriverWrapper(vr::ServerDriverHost *serverDriverHost)
+            : serverDriverHost_(serverDriverHost),
+              driverLocation_(findDriver()) {
+            if (!foundDriver()) {
+                return;
+            }
+            loader_ = DriverLoader::make(driverLocation_.driverRoot,
+                                         driverLocation_.driverFile);
+            if (!haveDriverLoaded()) {
+                return;
+            }
+            configDirs_ = findConfigDirs(driverLocation_);
+        }
+
+        /// Default constructor: we make and own our own ServerDriverHost.
         DriverWrapper()
-            : serverDriverHost_(new vr::ViveServerDriverHost),
+            : owningServerDriverHost_(new vr::ServerDriverHost),
+              serverDriverHost_(owningServerDriverHost_.get()),
               driverLocation_(findDriver()) {
             if (!foundDriver()) {
                 return;
@@ -72,18 +90,28 @@ namespace vive {
         DriverWrapper(DriverWrapper const &) = delete;
         DriverWrapper &operator=(DriverWrapper const &) = delete;
 
-        /// Move constructor
+/// Move constructor
+#if defined(_MSC_VER) && _MSC_VER < 1900
+        /// VS2013 doesn't know how to make a default move constructor :(
         DriverWrapper(DriverWrapper &&other)
-            : serverDriverHost_(std::move(other.serverDriverHost_)),
+            : owningServerDriverHost_(std::move(other.owningServerDriverHost_)),
+              serverDriverHost_(std::move(other.serverDriverHost_)),
               driverLocation_(std::move(other.driverLocation_)),
               configDirs_(std::move(other.configDirs_)),
               loader_(std::move(other.loader_)),
-              serverDeviceProvider_(std::move(other.serverDeviceProvider_)) {}
+              serverDeviceProvider_(std::move(other.serverDeviceProvider_)),
+              devices_(std::move(other.devices_)),
+              deactivateOnShutdown_(other.deactivateOnShutdown_) {}
+#else
+
+        DriverWrapper(DriverWrapper &&other) = default;
+#endif
 
         explicit operator bool() const {
             /// If you have the driver loaded and the config dirs found, that
             /// implies you found the driver.
-            return foundConfigDirs() && haveDriverLoaded();
+            return foundConfigDirs() && haveDriverLoaded() &&
+                   haveServerDeviceHost();
         }
 
         bool foundDriver() const { return driverLocation_.found; }
@@ -109,6 +137,10 @@ namespace vive {
                    static_cast<bool>(serverDeviceProvider_);
         }
 
+        bool haveServerDeviceHost() const {
+            return static_cast<bool>(serverDriverHost_);
+        }
+
         /// This method must be called before calling
         /// startServerDeviceProvider()
         bool isHMDPresent() {
@@ -125,7 +157,8 @@ namespace vive {
         /// This must be called before accessing the server device provider.
         /// Returns whether
         bool startServerDeviceProvider() {
-            if (!(foundDriver() && foundConfigDirs() && haveDriverLoaded())) {
+            if (!(foundDriver() && foundConfigDirs() && haveDriverLoaded() &&
+                  haveServerDeviceHost())) {
                 return false;
             }
             if (serverDeviceProvider_) {
@@ -133,7 +166,7 @@ namespace vive {
             }
             serverDeviceProvider_ =
                 getProvider<vr::IServerTrackedDeviceProvider>(
-                    std::move(loader_), nullptr, serverDriverHost_.get(),
+                    std::move(loader_), nullptr, serverDriverHost_,
                     configDirs_.driverConfigDir);
             return static_cast<bool>(serverDeviceProvider_);
         }
@@ -148,9 +181,7 @@ namespace vive {
             return *serverDeviceProvider_;
         }
 
-        vr::ViveServerDriverHost &driverHost() const {
-            return *serverDriverHost_;
-        }
+        vr::ServerDriverHost &driverHost() const { return *serverDriverHost_; }
 
         DriverVector const &devices() const { return devices_; }
 
@@ -175,7 +206,12 @@ namespace vive {
         }
 
       private:
-        std::unique_ptr<vr::ViveServerDriverHost> serverDriverHost_;
+        /// This pointer manages lifetime if we created our own host but isn't
+        /// accessed beyond that.
+        std::unique_ptr<vr::ServerDriverHost> owningServerDriverHost_;
+        /// This pointer is the one used, whether we create our own or get one
+        /// passed in.
+        vr::ServerDriverHost *serverDriverHost_;
 
         DriverLocationInfo driverLocation_;
         ConfigDirs configDirs_;

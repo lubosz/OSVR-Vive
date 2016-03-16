@@ -22,6 +22,11 @@
 // Internal Includes
 #include <osvr/PluginKit/PluginKit.h>
 #include <osvr/PluginKit/TrackerInterfaceC.h>
+#include <osvr/Util/PlatformConfig.h>
+#include "DriverLoader.h"
+#include "FindDriver.h"
+#include "GetProvider.h"
+#include "ServerDriverHost.h"
 
 // Generated JSON header file
 #include "com_osvr_Vive_json.h"
@@ -40,9 +45,10 @@ using namespace vr;
 // Anonymous namespace to avoid symbol collision
 namespace {
 
-class ViveDevice {
+class ViveDriverHost : ServerDriverHost {
+
   public:
-    ViveDevice(OSVR_PluginRegContext ctx) {
+      ViveDriverHost::ViveDriverHost(OSVR_PluginRegContext ctx) {
         /// Create the initialization options
         OSVR_DeviceInitOptions opts = osvrDeviceCreateInitOptions(ctx);
 
@@ -58,7 +64,29 @@ class ViveDevice {
         m_dev.registerUpdateCallback(this);
     }
 
-    OSVR_ReturnCode update() { return OSVR_RETURN_SUCCESS; }
+    OSVR_ReturnCode ViveDriverHost::update() { return OSVR_RETURN_SUCCESS; }
+
+    void ViveDriverHost::TrackedDevicePoseUpdated(uint32_t unWhichDevice,
+        const DriverPose_t &newPose) {
+
+        std::cout << "TrackedDevicePoseUpdated(" << unWhichDevice << ", newPose)" << std::endl;
+
+        OSVR_TimeValue now;
+        osvrTimeValueGetNow(&now);
+        if (newPose.poseIsValid) {
+            OSVR_PoseState pose;
+            pose.translation.data[0] = newPose.vecPosition[0];
+            pose.translation.data[1] = newPose.vecPosition[1];
+            pose.translation.data[2] = newPose.vecPosition[2];
+            pose.rotation.data[0] = newPose.qRotation.w;
+            pose.rotation.data[1] = newPose.qRotation.x;
+            pose.rotation.data[2] = newPose.qRotation.y;
+            pose.rotation.data[3] = newPose.qRotation.z;
+
+            osvrDeviceTrackerSendPoseTimestamped(m_dev, m_tracker, &pose,
+                unWhichDevice, &now);
+        }
+    }
 
   private:
     osvr::pluginkit::DeviceToken m_dev;
@@ -76,10 +104,27 @@ class HardwareDetection {
             return OSVR_RETURN_SUCCESS;
         }
 
-        else {
+        auto driverLocation = osvr::vive::findDriver();
+        if (driverLocation.found) {
+            std::cout << "Found the Vive driver at "
+                      << driverLocation.driverFile << std::endl;
+        } else {
+            std::cout
+                << "Could not find the native SteamVR Vive driver, exiting!"
+                << std::endl;
             return OSVR_RETURN_FAILURE;
         }
-        return OSVR_RETURN_SUCCESS;
+
+        auto vive = osvr::vive::DriverLoader::make(driverLocation.driverRoot,
+                                                   driverLocation.driverFile);
+        if (vive->isHMDPresent()) {
+            std::cout << "Vive is connected." << std::endl;
+            std::unique_ptr<vr::ServerDriverHost> serverDriverHost(
+                new vr::ServerDriverHost);
+
+            osvr::vive::getProvider<vr::IServerTrackedDeviceProvider>(
+                std::move(vive), nullptr, serverDriverHost.get(), ".");
+        }
     }
 
   private:

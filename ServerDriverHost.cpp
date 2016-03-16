@@ -23,7 +23,7 @@
 // limitations under the License.
 
 // Internal Includes
-#include <ViveServerDriverHost.h>
+#include <ServerDriverHost.h>
 
 // Library/third-party includes
 // - none
@@ -44,10 +44,9 @@ using namespace vr;
     } while (0)
 #endif
 
-vr::ViveServerDriverHost::ViveServerDriverHost() {}
+vr::ServerDriverHost::ServerDriverHost() {}
 
-bool ViveServerDriverHost::TrackedDeviceAdded(
-    const char *pchDeviceSerialNumber) {
+bool ServerDriverHost::TrackedDeviceAdded(const char *pchDeviceSerialNumber) {
     LOG_EVENTS("TrackedDeviceAdded(" << pchDeviceSerialNumber << ")");
     if (onTrackedDeviceAdded) {
         return onTrackedDeviceAdded(pchDeviceSerialNumber);
@@ -55,55 +54,57 @@ bool ViveServerDriverHost::TrackedDeviceAdded(
     return true;
 }
 
-void ViveServerDriverHost::TrackedDevicePoseUpdated(
-    uint32_t unWhichDevice, const DriverPose_t &newPose) {
+void ServerDriverHost::TrackedDevicePoseUpdated(uint32_t unWhichDevice,
+                                                const DriverPose_t &newPose) {
 
     LOG_EVENTS("TrackedDevicePoseUpdated(" << unWhichDevice << ", newPose)");
+
 }
 
-void ViveServerDriverHost::TrackedDevicePropertiesChanged(
-    uint32_t unWhichDevice) {
+void ServerDriverHost::TrackedDevicePropertiesChanged(uint32_t unWhichDevice) {
     LOG_EVENTS("TrackedDevicePropertiesChanged(" << unWhichDevice << ")");
 }
 
-void ViveServerDriverHost::VsyncEvent(double vsyncTimeOffsetSeconds) {
+void ServerDriverHost::VsyncEvent(double vsyncTimeOffsetSeconds) {
     LOG_EVENTS("VsyncEvent(" << vsyncTimeOffsetSeconds << ")");
 }
 
-void ViveServerDriverHost::TrackedDeviceButtonPressed(uint32_t unWhichDevice,
-                                                      EVRButtonId eButtonId,
-                                                      double eventTimeOffset) {
+void ServerDriverHost::TrackedDeviceButtonPressed(uint32_t unWhichDevice,
+                                                  EVRButtonId eButtonId,
+                                                  double eventTimeOffset) {
     LOG_EVENTS("TrackedDeviceButtonPressed("
                << unWhichDevice << ", " << eButtonId << ", " << eventTimeOffset
                << ")");
 }
 
-void ViveServerDriverHost::TrackedDeviceButtonUnpressed(
-    uint32_t unWhichDevice, EVRButtonId eButtonId, double eventTimeOffset) {
+void ServerDriverHost::TrackedDeviceButtonUnpressed(uint32_t unWhichDevice,
+                                                    EVRButtonId eButtonId,
+                                                    double eventTimeOffset) {
 
     LOG_EVENTS("TrackedDeviceButtonUnpressed("
                << unWhichDevice << ", " << eButtonId << ", " << eventTimeOffset
                << ")");
 }
 
-void ViveServerDriverHost::TrackedDeviceButtonTouched(uint32_t unWhichDevice,
-                                                      EVRButtonId eButtonId,
-                                                      double eventTimeOffset) {
+void ServerDriverHost::TrackedDeviceButtonTouched(uint32_t unWhichDevice,
+                                                  EVRButtonId eButtonId,
+                                                  double eventTimeOffset) {
 
     LOG_EVENTS("TrackedDeviceButtonTouched("
                << unWhichDevice << ", " << eButtonId << ", " << eventTimeOffset
                << ")");
 }
 
-void ViveServerDriverHost::TrackedDeviceButtonUntouched(
-    uint32_t unWhichDevice, EVRButtonId eButtonId, double eventTimeOffset) {
+void ServerDriverHost::TrackedDeviceButtonUntouched(uint32_t unWhichDevice,
+                                                    EVRButtonId eButtonId,
+                                                    double eventTimeOffset) {
 
     LOG_EVENTS("TrackedDeviceButtonUntouched("
                << unWhichDevice << ", " << eButtonId << ", " << eventTimeOffset
                << ")");
 }
 
-void ViveServerDriverHost::TrackedDeviceAxisUpdated(
+void ServerDriverHost::TrackedDeviceAxisUpdated(
     uint32_t unWhichDevice, uint32_t unWhichAxis,
     const VRControllerAxis_t &axisState) {
 
@@ -111,40 +112,39 @@ void ViveServerDriverHost::TrackedDeviceAxisUpdated(
                                            << unWhichAxis << ", axisState)");
 }
 
-void ViveServerDriverHost::MCImageUpdated() { LOG_EVENTS("MCImageUpdated()"); }
+void ServerDriverHost::MCImageUpdated() { LOG_EVENTS("MCImageUpdated()"); }
 
-IVRSettings *
-ViveServerDriverHost::GetSettings(const char *pchInterfaceVersion) {
+IVRSettings *ServerDriverHost::GetSettings(const char *pchInterfaceVersion) {
     LOG_EVENTS("GetSettings(" << pchInterfaceVersion << ")");
 
     return m_vrSettings;
 }
 
-void ViveServerDriverHost::PhysicalIpdSet(uint32_t unWhichDevice,
-                                          float fPhysicalIpdMeters) {
+void ServerDriverHost::PhysicalIpdSet(uint32_t unWhichDevice,
+                                      float fPhysicalIpdMeters) {
 
     LOG_EVENTS("PhysicalIpdSet(" << unWhichDevice << ", " << fPhysicalIpdMeters
                                  << ")");
 }
 
-void ViveServerDriverHost::ProximitySensorState(
-    uint32_t unWhichDevice, bool bProximitySensorTriggered) {
+void ServerDriverHost::ProximitySensorState(uint32_t unWhichDevice,
+                                            bool bProximitySensorTriggered) {
     LOG_EVENTS("ProximitySensorState(" << unWhichDevice << ", "
                                        << std::boolalpha
                                        << bProximitySensorTriggered << ")");
 }
 
-void ViveServerDriverHost::VendorSpecificEvent(uint32_t unWhichDevice,
-                                               vr::EVREventType eventType,
-                                               const VREvent_Data_t &eventData,
-                                               double eventTimeOffset) {
+void ServerDriverHost::VendorSpecificEvent(uint32_t unWhichDevice,
+                                           vr::EVREventType eventType,
+                                           const VREvent_Data_t &eventData,
+                                           double eventTimeOffset) {
 
     LOG_EVENTS("VendorSpecificEvent("
                << unWhichDevice << ", eventType, eventData, " << eventTimeOffset
                << ")");
 }
 
-bool ViveServerDriverHost::IsExiting() {
+bool ServerDriverHost::IsExiting() {
     LOG_EVENTS("IsExiting()");
     return isExiting_;
 }

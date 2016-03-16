@@ -55,8 +55,10 @@ add_library(ViveLoaderLib STATIC
     FindDriver.h
     InterfaceTraits.h
     SearchPathExtender.h
-    ViveServerDriverHost.cpp
-    ViveServerDriverHost.h)
+    ServerDriverHost.cpp
+    ServerDriverHost.h
+    VRSettings.cpp
+    VRSettings.h)
 target_link_libraries(ViveLoaderLib
     PUBLIC
     OpenVRDriver osvr::osvrUtil linkable_into_dll

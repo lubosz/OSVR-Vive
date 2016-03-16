@@ -22,12 +22,11 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#ifndef INCLUDED_ViveServerDriverHost_h_GUID_CD530D68_1639_42B7_9B06_BA9E59464E9C
-#define INCLUDED_ViveServerDriverHost_h_GUID_CD530D68_1639_42B7_9B06_BA9E59464E9C
+#ifndef INCLUDED_ServerDriverHost_h_GUID_CD530D68_1639_42B7_9B06_BA9E59464E9C
+#define INCLUDED_ServerDriverHost_h_GUID_CD530D68_1639_42B7_9B06_BA9E59464E9C
 
 // Internal Includes
-//#include <ViveVRSettings.h>
-//#include <osvr/PluginKit/PluginKit.h>
+#include <VRSettings.h>
 
 // Library/third-party includes
 #include <openvr_driver.h>
@@ -36,11 +35,10 @@
 #include <functional>
 
 // refer to IServerDriverHost for details on each function
-// maybe add Constructor to use ClientContext
 namespace vr {
-class ViveServerDriverHost : public vr::IServerDriverHost {
+class ServerDriverHost : public vr::IServerDriverHost {
   public:
-    ViveServerDriverHost();
+    ServerDriverHost();
 
     /// Sets our "IsExiting()" flag to true.
     void setExiting() { isExiting_ = true; }
