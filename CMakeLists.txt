@@ -5,6 +5,7 @@ cmake_minimum_required(VERSION 3.1.0)
 project(com_osvr_Vive)
 
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
+include(CopyImportedTarget)
 
 set(CMAKE_INCLUDE_CURRENT_DIR ON)
 set(CMAKE_CXX_STANDARD 11)
@@ -57,6 +58,7 @@ add_library(ViveLoaderLib STATIC
     SearchPathExtender.h
     ServerDriverHost.cpp
     ServerDriverHost.h
+    PropertyHelper.h
     VRSettings.cpp
     VRSettings.h)
 target_link_libraries(ViveLoaderLib
@@ -82,10 +84,12 @@ add_executable(ViveLoader
     ViveLoader.cpp)
 
 target_link_libraries(ViveLoader PRIVATE ViveLoaderLib)
-
-# Copy dlls
-include(CopyImportedTarget)
 copy_imported_targets(ViveLoader osvr::osvrUtil)
+
+# Build another tool
+add_executable(DisplayExtractor DisplayExtractor.cpp)
+target_link_libraries(DisplayExtractor PRIVATE ViveLoaderLib)
+copy_imported_targets(DisplayExtractor osvr::osvrUtil)
 
 # Install files for the plugin.
 install(FILES

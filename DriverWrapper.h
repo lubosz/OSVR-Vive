@@ -138,7 +138,7 @@ namespace vive {
         }
 
         bool haveServerDeviceHost() const {
-            return static_cast<bool>(serverDriverHost_);
+            return static_cast<bool>(serverDriverHost_ != nullptr);
         }
 
         /// This method must be called before calling
