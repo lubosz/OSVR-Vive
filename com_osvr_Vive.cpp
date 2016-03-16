@@ -21,10 +21,12 @@
 
 // Internal Includes
 #include <osvr/PluginKit/PluginKit.h>
-#include <osvr/PluginKit/TrackerInterfaceC.h>
 
-// Generated JSON header file
-#include "com_osvr_Vive_json.h"
+#include <osvr/Util/PlatformConfig.h>
+#include "DriverLoader.h"
+#include "FindDriver.h"
+#include "GetProvider.h"
+#include "ServerDriverHost.h"
 
 // Library/third-party includes
 #include <math.h>
@@ -40,31 +42,6 @@ using namespace vr;
 // Anonymous namespace to avoid symbol collision
 namespace {
 
-class ViveDevice {
-  public:
-    ViveDevice(OSVR_PluginRegContext ctx) {
-        /// Create the initialization options
-        OSVR_DeviceInitOptions opts = osvrDeviceCreateInitOptions(ctx);
-
-        osvrDeviceTrackerConfigure(opts, &m_tracker);
-
-        /// Create the sync device token with the options
-        m_dev.initSync(ctx, "Vive", opts);
-
-        /// Send JSON descriptor
-        m_dev.sendJsonDescriptor(com_osvr_Vive_json);
-
-        /// Register update callback
-        m_dev.registerUpdateCallback(this);
-    }
-
-    OSVR_ReturnCode update() { return OSVR_RETURN_SUCCESS; }
-
-  private:
-    osvr::pluginkit::DeviceToken m_dev;
-    OSVR_TrackerDeviceInterface m_tracker;
-};
-
 class HardwareDetection {
   public:
     HardwareDetection() {}
@@ -76,10 +53,27 @@ class HardwareDetection {
             return OSVR_RETURN_SUCCESS;
         }
 
-        else {
+        auto driverLocation = osvr::vive::findDriver();
+        if (driverLocation.found) {
+            std::cout << "Found the Vive driver at "
+                      << driverLocation.driverFile << std::endl;
+        } else {
+            std::cout
+                << "Could not find the native SteamVR Vive driver, exiting!"
+                << std::endl;
             return OSVR_RETURN_FAILURE;
         }
-        return OSVR_RETURN_SUCCESS;
+
+        auto vive = osvr::vive::DriverLoader::make(driverLocation.driverRoot,
+                                                   driverLocation.driverFile);
+        if (vive->isHMDPresent()) {
+            std::cout << "Vive is connected." << std::endl;
+            std::unique_ptr<vr::ServerDriverHost> serverDriverHost(
+                new vr::ServerDriverHost);
+
+            osvr::vive::getProvider<vr::IServerTrackedDeviceProvider>(
+                std::move(vive), nullptr, serverDriverHost.get(), ".");
+        }
     }
 
   private:
