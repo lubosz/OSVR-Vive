@@ -103,6 +103,8 @@ namespace vive {
 
         void updateFovs(Fovs const &fovs);
 
+        enum { LeftEye = 0, RightEye = 1 };
+
         void updateCenterOfProjection(std::size_t eyeIndex,
                                       std::array<float, 2> const &center);
 
@@ -111,6 +113,8 @@ namespace vive {
 
         void setResolution(std::uint32_t width, std::uint32_t height);
 
+        void setRGBMeshExternalFile(std::string const& fn);
+
         /// Get the descriptor.
         std::string getDescriptor() const;
 
@@ -118,6 +122,27 @@ namespace vive {
         struct Impl;
         std::unique_ptr<Impl> impl_;
         bool valid_ = false;
+    };
+
+    class RGBMesh {
+      public:
+        RGBMesh();
+        ~RGBMesh();
+
+        enum { Red = 0, Green = 1, Blue = 2 };
+
+        enum class Eye { Left = 0, Right = 1 };
+        using Point2 = std::array<float, 2>;
+
+        void addSample(Eye eye, Point2 const &inputUV, Point2 const &outR,
+                       Point2 const &outG, Point2 const &outB);
+
+        std::string getSeparateFile() const;
+        std::string getSeparateFileStyled() const;
+
+      private:
+        struct Impl;
+        std::unique_ptr<Impl> impl_;
     };
 
 } // namespace vive

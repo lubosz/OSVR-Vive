@@ -59,6 +59,84 @@ inline UnitClippingPlane getClippingPlanes(vr::IVRDisplayComponent *display,
     return ret;
 }
 
+void updateCenterOfProjection(DisplayDescriptor &descriptor,
+                              vr::ITrackedDeviceServerDriver *dev) {
+    /// Get the two eye/lens center of projections.
+    using CenterOfProjectionIndices =
+        std::tuple<std::size_t, vr::ETrackedDeviceProperty,
+        vr::ETrackedDeviceProperty>;
+    for (auto &data :
+    { CenterOfProjectionIndices{ 0, vr::Prop_LensCenterLeftU_Float,
+        vr::Prop_LensCenterLeftV_Float },
+        CenterOfProjectionIndices{ 1, vr::Prop_LensCenterRightU_Float,
+        vr::Prop_LensCenterRightV_Float } }) {
+        using std::get;
+        ETrackedPropertyError err;
+        auto x = dev->GetFloatTrackedDeviceProperty(get<1>(data), &err);
+        auto y = dev->GetFloatTrackedDeviceProperty(get<2>(data), &err);
+
+        g_descriptor->updateCenterOfProjection(get<0>(data), { { x, y } });
+    }
+}
+
+bool updateFOV(DisplayDescriptor &descriptor,
+                vr::IVRDisplayComponent *display) {
+    /// Back-calculate the display parameters based on the projection
+    /// clipping planes.
+    auto leftClip = getClippingPlanes(display, vr::Eye_Left);
+    auto rightClip = getClippingPlanes(display, vr::Eye_Right);
+    std::cout << PREFIX << "leftClip: " << leftClip << std::endl;
+    std::cout << PREFIX << "rightClip: " << rightClip << std::endl;
+
+    auto leftFovs = clipPlanesToHalfFovs(leftClip);
+    auto rightFovs = clipPlanesToHalfFovs(rightClip);
+
+    auto fovsResult = twoEyeFovsToMonoWithOverlap(leftFovs, rightFovs);
+    if (fovsResult.first) {
+        // we successfully computed the conversion!
+        descriptor.updateFovs(fovsResult.second);
+        return true;
+    }
+
+    // Couldn't compute the conversion - must not be symmetrical enough
+    // at the moment.
+    std::cout << PREFIX << "Will attempt to symmetrize and re-convert "
+                           "an approximation of the field of view."
+              << std::endl;
+    averageAndSymmetrize(leftFovs, rightFovs);
+    fovsResult = twoEyeFovsToMonoWithOverlap(leftFovs, rightFovs);
+    if (fovsResult.first) {
+        // we successfully computed the conversion (of an
+        // approximation)!
+        descriptor.updateFovs(fovsResult.second);
+        return true;
+    }
+    std::cout << PREFIX << "Still failed to produce a conversion." << std::endl;
+    return false;
+}
+
+void generateMesh(vr::IVRDisplayComponent * display, const std::size_t steps = 3) {
+    RGBMesh mesh;
+    const float stepSize = 1.f / static_cast<float>(steps);
+    for (std::size_t uInt = 0; uInt < steps; ++uInt) {
+        for (std::size_t vInt = 0; vInt < steps; ++vInt) {
+            const auto u = uInt * stepSize;
+            const auto v = vInt * stepSize;
+            for (std::size_t eye = 0; eye < 2; ++eye) {
+                auto ret = display->ComputeDistortion(
+                    eye == 0 ? vr::Eye_Left : vr::Eye_Right, u, v);
+                mesh.addSample(eye == 0 ? RGBMesh::Eye::Left
+                                        : RGBMesh::Eye::Right,
+                               {{u, v}}, {{ret.rfRed[0], ret.rfRed[1]}},
+                               {{ret.rfGreen[0], ret.rfGreen[1]}},
+                               {{ret.rfBlue[0], ret.rfBlue[1]}});
+            }
+        }
+    }
+    std::cout << PREFIX << "MESH: " << mesh.getSeparateFileStyled()
+              << std::endl;
+}
+
 void dumpStringProp(vr::ITrackedDeviceServerDriver *dev, const char name[],
                     vr::ETrackedDeviceProperty prop) {
     auto propVal = getStringProperty(dev, prop);
@@ -77,19 +155,6 @@ void dumpStringProp(vr::ITrackedDeviceServerDriver *dev, const char name[],
 
 void handleDisplay(vr::ITrackedDeviceServerDriver *dev,
                    vr::IVRDisplayComponent *display) {
-
-#if 0
-        auto prop = getStringProperty(dev, vr::Prop_TrackingSystemName_String);
-        if (vr::TrackedProp_Success == prop.second) {
-            std::cout << "Prop_TrackingSystemName_String: '" << prop.first
-                      << "'" << std::endl;
-        } else {
-            std::cout << "Prop_TrackingSystemName_String: '" << prop.first
-                      << "' (got an error, code " << prop.second << ")"
-                      << std::endl;
-        }
-    }
-#endif
     DUMP_STRING_PROP(dev, Prop_ManufacturerName_String);
     DUMP_STRING_PROP(dev, Prop_ModelNumber_String);
     DUMP_STRING_PROP(dev, Prop_SerialNumber_String);
@@ -108,57 +173,14 @@ void handleDisplay(vr::ITrackedDeviceServerDriver *dev,
         g_descriptor->setResolution(width, height);
     }
 
-    /// Get the two eye/lens center of projections.
-    using CenterOfProjectionIndices =
-        std::tuple<std::size_t, vr::ETrackedDeviceProperty,
-                   vr::ETrackedDeviceProperty>;
-    for (auto &data :
-         {CenterOfProjectionIndices{0, vr::Prop_LensCenterLeftU_Float,
-                                    vr::Prop_LensCenterLeftV_Float},
-          CenterOfProjectionIndices{1, vr::Prop_LensCenterRightU_Float,
-                                    vr::Prop_LensCenterRightV_Float}}) {
-        using std::get;
-        ETrackedPropertyError err;
-        auto x = dev->GetFloatTrackedDeviceProperty(get<1>(data), &err);
-        auto y = dev->GetFloatTrackedDeviceProperty(get<2>(data), &err);
+    updateCenterOfProjection(*g_descriptor, dev);
 
-        g_descriptor->updateCenterOfProjection(get<0>(data), {{x, y}});
+    if (!updateFOV(*g_descriptor, display)) {
+        g_gotDisplay = false;
+        return;
     }
-    {
-        /// Back-calculate the display parameters based on the projection
-        /// clipping planes.
-        auto leftClip = getClippingPlanes(display, vr::Eye_Left);
-        auto rightClip = getClippingPlanes(display, vr::Eye_Right);
-        std::cout << PREFIX << "leftClip: " << leftClip << std::endl;
-        std::cout << PREFIX << "rightClip: " << rightClip << std::endl;
 
-        auto leftFovs = clipPlanesToHalfFovs(leftClip);
-        auto rightFovs = clipPlanesToHalfFovs(rightClip);
-
-        auto fovsResult = twoEyeFovsToMonoWithOverlap(leftFovs, rightFovs);
-        if (fovsResult.first) {
-            // we successfully computed the conversion!
-            g_descriptor->updateFovs(fovsResult.second);
-        } else {
-            // Couldn't compute the conversion - must not be symmetrical enough
-            // at the moment.
-            std::cout << PREFIX << "Will attempt to symmetrize and re-convert "
-                                   "an approximation of the field of view."
-                      << std::endl;
-            averageAndSymmetrize(leftFovs, rightFovs);
-            fovsResult = twoEyeFovsToMonoWithOverlap(leftFovs, rightFovs);
-            if (fovsResult.first) {
-                // we successfully computed the conversion (of an
-                // approximation)!
-                g_descriptor->updateFovs(fovsResult.second);
-
-            } else {
-                std::cout << PREFIX << "Still failed to produce a conversion."
-                          << std::endl;
-                g_gotDisplay = false;
-            }
-        }
-    }
+    generateMesh(display);
 }
 
 int main() {

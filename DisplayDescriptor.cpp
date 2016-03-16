@@ -30,6 +30,7 @@
 // Library/third-party includes
 #include <json/reader.h>
 #include <json/value.h>
+#include <json/writer.h>
 
 // Standard includes
 #include <algorithm>
@@ -190,8 +191,8 @@ namespace vive {
 
     void DisplayDescriptor::updateCentersOfProjection(
         std::array<float, 2> const &left, std::array<float, 2> const &right) {
-        updateCenterOfProjection(0, left);
-        updateCenterOfProjection(1, right);
+        updateCenterOfProjection(LeftEye, left);
+        updateCenterOfProjection(RightEye, right);
     }
 
     void DisplayDescriptor::setResolution(std::uint32_t width,
@@ -201,8 +202,95 @@ namespace vive {
         firstRes["height"] = height;
     }
 
+    void DisplayDescriptor::setRGBMeshExternalFile(std::string const & fn)
+    {
+        Json::Value & distortion = impl_->get("distortion");
+        distortion["rgb_point_samples_external_file"] = fn;
+    }
+
     std::string DisplayDescriptor::getDescriptor() const {
         return impl_->descriptor.toStyledString();
+    }
+
+    template <typename T> inline Json::Value arrayToJson(T &&input) {
+        Json::Value ret(Json::arrayValue);
+        for (auto &&elt : input) {
+            ret.append(elt);
+        }
+        return ret;
+    }
+
+    template <typename T, typename U>
+    inline Json::Value argsToJsonArray(T &&a, U &&b) {
+        Json::Value ret(Json::arrayValue);
+        ret.append(std::forward<T>(a));
+        ret.append(std::forward<U>(b));
+        return ret;
+    }
+
+    static const std::array<std::string, 3> COLOR_NAMES = {
+        "red_point_samples", "green_point_samples", "blue_point_samples"};
+    struct RGBMesh::Impl {
+        Impl()
+            : root(Json::objectValue),
+              distortion_(&(root["display"]["hmd"]["distortion"] =
+                                Json::Value(Json::objectValue))) {
+            // So inside the distortion object, there are named arrays for each
+            // color. they each contain an array for each eye, and in each eye
+            // array goes each [ [inu, inv], [outu, outv] ] pair.
+            for (auto colorIdx : {Red, Green, Blue}) {
+                /// Create the array for this color
+                colors_[colorIdx] = &(distortion()[COLOR_NAMES[colorIdx]] =
+                                          Json::Value(Json::arrayValue));
+                /// create its first (left) eye array
+                colors_[colorIdx]->append(Json::Value(Json::arrayValue));
+                /// create its second (right) eye array
+                colors_[colorIdx]->append(Json::Value(Json::arrayValue));
+            }
+        }
+
+        Json::Value root;
+
+        Json::Value &distortion() { return *distortion_; }
+
+        Json::Value &getColorAndEye(Eye eye, size_t color) {
+            return (*colors_[color])[static_cast<int>(eye)];
+        }
+
+        void addSample(Eye eye, size_t color, Json::Value const &inputUV,
+                       Point2 const &outUV) {
+            getColorAndEye(eye, color)
+                .append(argsToJsonArray(inputUV, arrayToJson(outUV)));
+        }
+
+        void addSample(Eye eye, size_t color, Point2 const &inputUV,
+                       Point2 const &outUV) {
+            addSample(eye, color, arrayToJson(inputUV), outUV);
+        }
+
+        void addSample(Eye eye, Point2 const &inputUV, Point2 const &outR,
+                       Point2 const &outG, Point2 const &outB) {
+            auto inUV = arrayToJson(inputUV);
+            addSample(eye, Red, inUV, outR);
+            addSample(eye, Green, inUV, outG);
+            addSample(eye, Blue, inUV, outB);
+        }
+
+        Json::Value *distortion_ = nullptr;
+        std::array<Json::Value *, 3> colors_;
+    };
+    RGBMesh::RGBMesh() : impl_(new Impl) {}
+    RGBMesh::~RGBMesh() {}
+    void RGBMesh::addSample(Eye eye, Point2 const &inputUV, Point2 const &outR,
+                            Point2 const &outG, Point2 const &outB) {
+        impl_->addSample(eye, inputUV, outR, outG, outB);
+    }
+    std::string RGBMesh::getSeparateFile() const {
+        Json::FastWriter writer;
+        return writer.write(impl_->root);
+    }
+    std::string RGBMesh::getSeparateFileStyled() const {
+        return impl_->root.toStyledString();
     }
 } // namespace vive
 } // namespace osvr
