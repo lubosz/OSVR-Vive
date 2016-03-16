@@ -41,6 +41,7 @@
 #include <cmath>
 #include <thread>
 #include <tuple>
+#include <fstream>
 
 static const auto PREFIX = "[DisplayExtractor] ";
 
@@ -64,23 +65,23 @@ void updateCenterOfProjection(DisplayDescriptor &descriptor,
     /// Get the two eye/lens center of projections.
     using CenterOfProjectionIndices =
         std::tuple<std::size_t, vr::ETrackedDeviceProperty,
-        vr::ETrackedDeviceProperty>;
+                   vr::ETrackedDeviceProperty>;
     for (auto &data :
-    { CenterOfProjectionIndices{ 0, vr::Prop_LensCenterLeftU_Float,
-        vr::Prop_LensCenterLeftV_Float },
-        CenterOfProjectionIndices{ 1, vr::Prop_LensCenterRightU_Float,
-        vr::Prop_LensCenterRightV_Float } }) {
+         {CenterOfProjectionIndices{0, vr::Prop_LensCenterLeftU_Float,
+                                    vr::Prop_LensCenterLeftV_Float},
+          CenterOfProjectionIndices{1, vr::Prop_LensCenterRightU_Float,
+                                    vr::Prop_LensCenterRightV_Float}}) {
         using std::get;
         ETrackedPropertyError err;
         auto x = dev->GetFloatTrackedDeviceProperty(get<1>(data), &err);
         auto y = dev->GetFloatTrackedDeviceProperty(get<2>(data), &err);
 
-        g_descriptor->updateCenterOfProjection(get<0>(data), { { x, y } });
+        g_descriptor->updateCenterOfProjection(get<0>(data), {{x, y}});
     }
 }
 
 bool updateFOV(DisplayDescriptor &descriptor,
-                vr::IVRDisplayComponent *display) {
+               vr::IVRDisplayComponent *display) {
     /// Back-calculate the display parameters based on the projection
     /// clipping planes.
     auto leftClip = getClippingPlanes(display, vr::Eye_Left);
@@ -115,26 +116,38 @@ bool updateFOV(DisplayDescriptor &descriptor,
     return false;
 }
 
-void generateMesh(vr::IVRDisplayComponent * display, const std::size_t steps = 3) {
-    RGBMesh mesh;
-    const float stepSize = 1.f / static_cast<float>(steps);
-    for (std::size_t uInt = 0; uInt < steps; ++uInt) {
-        for (std::size_t vInt = 0; vInt < steps; ++vInt) {
-            const auto u = uInt * stepSize;
-            const auto v = vInt * stepSize;
-            for (std::size_t eye = 0; eye < 2; ++eye) {
-                auto ret = display->ComputeDistortion(
-                    eye == 0 ? vr::Eye_Left : vr::Eye_Right, u, v);
-                mesh.addSample(eye == 0 ? RGBMesh::Eye::Left
-                                        : RGBMesh::Eye::Right,
-                               {{u, v}}, {{ret.rfRed[0], ret.rfRed[1]}},
-                               {{ret.rfGreen[0], ret.rfGreen[1]}},
-                               {{ret.rfBlue[0], ret.rfBlue[1]}});
-            }
-        }
+inline void addMeshPoint(vr::IVRDisplayComponent *display, RGBMesh &mesh,
+                         const float u, const float v) {
+    for (std::size_t eye = 0; eye < 2; ++eye) {
+        auto ret = display->ComputeDistortion(
+            eye == 0 ? vr::Eye_Left : vr::Eye_Right, u, v);
+        mesh.addSample(eye == 0 ? RGBMesh::Eye::Left : RGBMesh::Eye::Right,
+                       {{u, v}}, {{ret.rfRed[0], ret.rfRed[1]}},
+                       {{ret.rfGreen[0], ret.rfGreen[1]}},
+                       {{ret.rfBlue[0], ret.rfBlue[1]}});
     }
+}
+
+std::string generateMeshFileContents(vr::IVRDisplayComponent *display,
+                                     const std::size_t steps = 3) {
+    RGBMesh mesh;
+    const auto realSteps = steps - 1;
+    const float stepSize = 1.f / static_cast<float>(steps);
+    for (std::size_t uInt = 0; uInt < realSteps; ++uInt) {
+        const auto u = uInt * stepSize;
+        for (std::size_t vInt = 0; vInt < realSteps; ++vInt) {
+            const auto v = vInt * stepSize;
+            addMeshPoint(display, mesh, u, v);
+        }
+        // make sure we get v = 1.
+        addMeshPoint(display, mesh, u, 1);
+    }
+    // and get (1, 1) as well.
+    addMeshPoint(display, mesh, 1, 1);
+
     std::cout << PREFIX << "MESH: " << mesh.getSeparateFileStyled()
               << std::endl;
+    return mesh.getSeparateFile();
 }
 
 void dumpStringProp(vr::ITrackedDeviceServerDriver *dev, const char name[],
@@ -180,7 +193,21 @@ void handleDisplay(vr::ITrackedDeviceServerDriver *dev,
         return;
     }
 
-    generateMesh(display);
+    auto meshContents = generateMeshFileContents(display, 10);
+    static const auto MeshFilename = "ViveMesh.json";
+    {
+        std::ofstream os(MeshFilename);
+        os << meshContents << std::flush;
+        os.close();
+    }
+    g_descriptor->setRGBMeshExternalFile(MeshFilename);
+
+    static const auto DisplayConfig = "ViveDisplay.json";
+    {
+        std::ofstream os(DisplayConfig);
+        os << g_descriptor->getDescriptor() << std::flush;
+        os.close();
+    }
 }
 
 int main() {
@@ -252,8 +279,7 @@ int main() {
         }
 
         if (g_gotDisplay) {
-            std::cout << "\n\n"
-                      << g_descriptor->getDescriptor() << std::endl;
+            std::cout << "\n\n" << g_descriptor->getDescriptor() << std::endl;
         }
         std::cout << PREFIX << "Press enter to quit..." << std::endl;
         std::cin.ignore();
