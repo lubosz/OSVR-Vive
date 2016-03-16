@@ -56,7 +56,7 @@ osvr_add_plugin(com_osvr_Vive
     SearchPathExtender.h
     "${CMAKE_CURRENT_BINARY_DIR}/com_osvr_Vive_json.h")
 
-target_link_libraries(com_osvr_Vive OpenVRDriver)
+target_link_libraries(com_osvr_Vive OpenVRDriver boost_process)
 
 # Build the executable
 add_executable(ViveLoader
@@ -71,7 +71,7 @@ add_executable(ViveLoader
     ViveServerDriverHost.cpp
     ViveServerDriverHost.h)
 
-target_link_libraries(ViveLoader PRIVATE OpenVRDriver osvr::osvrUtil JsonCpp::JsonCpp filesystem_lib)
+target_link_libraries(ViveLoader PRIVATE OpenVRDriver osvr::osvrUtil JsonCpp::JsonCpp filesystem_lib boost_process)
 target_include_directories(ViveLoader PRIVATE ${Boost_INCLUDE_DIRS})
 
 # Copy dlls
