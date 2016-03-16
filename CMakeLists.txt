@@ -57,6 +57,7 @@ add_library(ViveLoaderLib STATIC
     SearchPathExtender.h
     ServerDriverHost.cpp
     ServerDriverHost.h
+    PropertyHelper.h
     VRSettings.cpp
     VRSettings.h)
 target_link_libraries(ViveLoaderLib
