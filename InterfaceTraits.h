@@ -37,8 +37,8 @@
 
 namespace osvr {
 namespace vive {
-    /// Maps from the interface type (as provided by the entry point function)
-    /// to the name string used to retrieve it.
+    /// Maps from the interface type (as provided by the entry point function or
+    /// GetComponent) to the name string used to retrieve it.
     template <typename InterfaceType> struct InterfaceNameTrait;
 
     template <> struct InterfaceNameTrait<vr::IClientTrackedDeviceProvider> {
@@ -50,6 +50,9 @@ namespace vive {
         static const char *get() {
             return vr::IServerTrackedDeviceProvider_Version;
         }
+    };
+    template <> struct InterfaceNameTrait<vr::IVRDisplayComponent> {
+        static const char *get() { return vr::IVRDisplayComponent_Version; }
     };
 
     /// Maps from the interface type (as provided by the entry point function)
@@ -81,6 +84,34 @@ namespace vive {
     struct InterfaceExpectedFromEntryPointTrait<
         vr::IServerTrackedDeviceProvider> : std::true_type {};
 
+    /// Identifies whether we should expect an interface to be provided by the
+    /// driver entry point.
+    template <typename InterfaceType>
+    struct InterfaceExpectedFromGetComponent : std::false_type {};
+
+    template <>
+    struct InterfaceExpectedFromGetComponent<vr::IVRDisplayComponent>
+        : std::true_type {};
+
+    /// Helper function for easy typesafe  "query interface"-type accessing of
+    /// tracked server driver components
+    template <typename InterfaceType>
+    inline InterfaceType *getComponent(vr::ITrackedDeviceServerDriver *driver) {
+        static_assert(
+            InterfaceExpectedFromGetComponent<InterfaceType>::value,
+            "Can only call getComponent with interface types expected to be "
+            "used with getComponent!");
+        if (!driver) {
+            return nullptr;
+        }
+        void *initialRet =
+            driver->GetComponent(InterfaceNameTrait<InterfaceType>::get());
+        if (!initialRet) {
+            return nullptr;
+        }
+        return static_cast<InterfaceType *>(initialRet);
+    }
 } // namespace vive
 } // namespace osvr
+
 #endif // INCLUDED_InterfaceTraits_h_GUID_36EC6818_80C9_4EA1_D86F_517E153574D0
