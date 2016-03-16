@@ -88,6 +88,7 @@ int main() {
     for (decltype(numDevices) i = 0; i < numDevices; ++i) {
         auto dev = vive.serverDevProvider().GetTrackedDeviceDriver(
             i, vr::ITrackedDeviceServerDriver_Version);
+        dev->Activate(i);
         std::cout << "Device " << i << std::endl;
         {
             auto disp = osvr::vive::getComponent<vr::IVRDisplayComponent>(dev);
@@ -116,6 +117,12 @@ int main() {
     for (int i = 0; i < 3000; ++i) {
         vive.serverDevProvider().RunFrame();
         std::this_thread::sleep_for(std::chrono::milliseconds(1));
+    }
+
+    for (decltype(numDevices) i = 0; i < numDevices; ++i) {
+        auto dev = vive.serverDevProvider().GetTrackedDeviceDriver(
+            i, vr::ITrackedDeviceServerDriver_Version);
+        dev->Deactivate();
     }
     std::cout << "*** Done with dummy mainloop" << std::endl;
     return 0;
