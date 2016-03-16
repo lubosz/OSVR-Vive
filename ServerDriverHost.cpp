@@ -25,6 +25,9 @@
 // Internal Includes
 #include <ServerDriverHost.h>
 
+// Generated JSON header file
+#include "com_osvr_Vive_json.h"
+
 // Library/third-party includes
 // - none
 
@@ -46,6 +49,24 @@ using namespace vr;
 
 vr::ServerDriverHost::ServerDriverHost() {}
 
+vr::ServerDriverHost::ServerDriverHost(OSVR_PluginRegContext ctx) {
+    /// Create the initialization options
+    OSVR_DeviceInitOptions opts = osvrDeviceCreateInitOptions(ctx);
+
+    osvrDeviceTrackerConfigure(opts, &m_tracker);
+
+    /// Create the sync device token with the options
+    m_dev.initSync(ctx, "Vive", opts);
+
+    /// Send JSON descriptor
+    m_dev.sendJsonDescriptor(com_osvr_Vive_json);
+
+    /// Register update callback
+    m_dev.registerUpdateCallback(this);
+}
+
+OSVR_ReturnCode ServerDriverHost::update() { return OSVR_RETURN_SUCCESS; }
+
 bool ServerDriverHost::TrackedDeviceAdded(const char *pchDeviceSerialNumber) {
     LOG_EVENTS("TrackedDeviceAdded(" << pchDeviceSerialNumber << ")");
     return true;
@@ -55,6 +76,22 @@ void ServerDriverHost::TrackedDevicePoseUpdated(uint32_t unWhichDevice,
                                                 const DriverPose_t &newPose) {
 
     LOG_EVENTS("TrackedDevicePoseUpdated(" << unWhichDevice << ", newPose)");
+
+    OSVR_TimeValue now;
+    osvrTimeValueGetNow(&now);
+    if (newPose.poseIsValid) {
+        OSVR_PoseState pose;
+        pose.translation.data[0] = newPose.vecPosition[0];
+        pose.translation.data[1] = newPose.vecPosition[1];
+        pose.translation.data[2] = newPose.vecPosition[2];
+        pose.rotation.data[0] = newPose.qRotation.w;
+        pose.rotation.data[1] = newPose.qRotation.x;
+        pose.rotation.data[2] = newPose.qRotation.y;
+        pose.rotation.data[3] = newPose.qRotation.z;
+
+        osvrDeviceTrackerSendPoseTimestamped(m_dev, m_tracker, &pose,
+                                             unWhichDevice, &now);
+    }
 }
 
 void ServerDriverHost::TrackedDevicePropertiesChanged(uint32_t unWhichDevice) {

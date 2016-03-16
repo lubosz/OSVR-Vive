@@ -26,22 +26,25 @@
 #define INCLUDED_ServerDriverHost_h_GUID_CD530D68_1639_42B7_9B06_BA9E59464E9C
 
 // Internal Includes
-//#include <ViveVRSettings.h>
-//#include <osvr/PluginKit/PluginKit.h>
+#include <VRSettings.h>
+#include <osvr/PluginKit/PluginKit.h>
+#include <osvr/PluginKit/TrackerInterfaceC.h>
 
 // Library/third-party includes
 #include <openvr_driver.h>
-#include <VRSettings.h>
 
 // Standard includes
 // - none
 
 // refer to IServerDriverHost for details on each function
-// maybe add Constructor to use ClientContext
 namespace vr {
 class ServerDriverHost : public vr::IServerDriverHost {
   public:
     ServerDriverHost();
+
+    ServerDriverHost(OSVR_PluginRegContext ctx);
+
+    OSVR_ReturnCode update();
 
     /// Sets our "IsExiting()" flag to true.
     void setExiting() { isExiting_ = true; }
@@ -93,8 +96,10 @@ class ServerDriverHost : public vr::IServerDriverHost {
     virtual bool IsExiting();
 
   private:
-    IVRSettings *m_vrSettings;
+    IVRSettings *m_vrSettings = nullptr;
     bool isExiting_ = false;
+    osvr::pluginkit::DeviceToken m_dev;
+    OSVR_TrackerDeviceInterface m_tracker;
 };
 
 } // namespace vr
