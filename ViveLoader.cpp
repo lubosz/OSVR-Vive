@@ -87,6 +87,15 @@ int main() {
         auto numDevices = serverDeviceProvider->GetTrackedDeviceCount();
         std::cout << "*** Got " << numDevices << " tracked devices"
                   << std::endl;
+        for (int i = 0; i < numDevices; ++i) {
+            auto dev = serverDeviceProvider->GetTrackedDeviceDriver(
+                i, vr::ITrackedDeviceServerDriver_Version);
+            std::cout << "Device " << i << std::endl;
+            auto disp = osvr::vive::getComponent<vr::IVRDisplayComponent>(dev);
+            if (disp) {
+                std::cout << "-- and it's a display, too!" << std::endl;
+            }
+        }
 
         std::cout << "*** Entering dummy mainloop" << std::endl;
         for (int i = 0; i < 3000; ++i) {
