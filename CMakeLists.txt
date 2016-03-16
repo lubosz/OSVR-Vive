@@ -92,6 +92,8 @@ osvr_convert_json(viveDisplayInput
     input/HTC_Vive_PRE.json
     "${CMAKE_CURRENT_BINARY_DIR}/viveDisplayInput.h")
 add_executable(DisplayExtractor
+    DisplayDescriptor.cpp
+    DisplayDescriptor.h
     DisplayExtractor.cpp
     "${CMAKE_CURRENT_BINARY_DIR}/viveDisplayInput.h")
 target_link_libraries(DisplayExtractor PRIVATE ViveLoaderLib JsonCpp::JsonCpp)

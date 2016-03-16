@@ -1,0 +1,35 @@
+{
+    "meta": {
+        "schemaVersion": 1
+    },
+    "hmd": {
+        "device": {
+            "vendor": "HTC",
+            "model": "Vive PRE",
+            "Version": "",
+            "Note": ""
+        },
+        "field_of_view": {
+            "monocular_horizontal": 105.70224761962891,
+            "monocular_vertical": 111.49478149414062,
+            "overlap_percent": 97.032329683884882,
+            "pitch_tilt": 0.079456329345703125
+        },
+        "resolutions": [{
+            "width": 2160,
+            "height": 1200,
+            "video_inputs": 1,
+            "display_mode": "horz_side_by_side",
+            "swap_eyes": 0
+        }],
+        "distortion": {},
+        "rendering": {},
+        "eyes": [{
+            "center_proj_x": 0.54053610563278198,
+            "center_proj_y": 0.49780362844467163
+        }, {
+            "center_proj_x": 0.44958537817001343,
+            "center_proj_y": 0.4974265992641449
+        }]
+    }
+}
