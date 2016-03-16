@@ -46,13 +46,23 @@ namespace vive {
             return vr::IClientTrackedDeviceProvider_Version;
         }
     };
+
     template <> struct InterfaceNameTrait<vr::IServerTrackedDeviceProvider> {
         static const char *get() {
             return vr::IServerTrackedDeviceProvider_Version;
         }
     };
+
     template <> struct InterfaceNameTrait<vr::IVRDisplayComponent> {
         static const char *get() { return vr::IVRDisplayComponent_Version; }
+    };
+
+    template <> struct InterfaceNameTrait<vr::IVRControllerComponent> {
+        static const char *get() { return vr::IVRControllerComponent_Version; }
+    };
+
+    template <> struct InterfaceNameTrait<vr::IVRCameraComponent> {
+        static const char *get() { return vr::IVRCameraComponent_Version; }
     };
 
     /// Maps from the interface type (as provided by the entry point function)
@@ -91,6 +101,14 @@ namespace vive {
 
     template <>
     struct InterfaceExpectedFromGetComponent<vr::IVRDisplayComponent>
+        : std::true_type {};
+
+    template <>
+    struct InterfaceExpectedFromGetComponent<vr::IVRControllerComponent>
+        : std::true_type {};
+
+    template <>
+    struct InterfaceExpectedFromGetComponent<vr::IVRCameraComponent>
         : std::true_type {};
 
     /// Helper function for easy typesafe  "query interface"-type accessing of
