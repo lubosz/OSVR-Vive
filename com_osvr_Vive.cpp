@@ -20,10 +20,10 @@
 // limitations under the License.
 
 // Internal Includes
+#include "DriverWrapper.h"
 #include <osvr/PluginKit/PluginKit.h>
 #include <osvr/PluginKit/TrackerInterfaceC.h>
 #include <osvr/Util/PlatformConfig.h>
-#include "DriverWrapper.h"
 
 // Generated JSON header file
 #include "com_osvr_Vive_json.h"
@@ -41,11 +41,77 @@ using namespace vr;
 
 // Anonymous namespace to avoid symbol collision
 namespace {
-static const auto PREFIX = "PLUGIN: ";
+static const auto PREFIX = "[OSVR-Vive] ";
 class ViveDriverHost : public ServerDriverHost {
-
   public:
-    ViveDriverHost::ViveDriverHost(OSVR_PluginRegContext ctx) {
+    /// @return false if we failed to start up for some reason.
+    bool start(OSVR_PluginRegContext ctx, osvr::vive::DriverWrapper &&inVive) {
+        if (!inVive) {
+            std::cerr << PREFIX << "Error: called ViveDriverHost::start() with "
+                                   "an invalid vive object!"
+                      << std::endl;
+        }
+        /// Take ownership of the Vive.
+        m_vive.reset(new osvr::vive::DriverWrapper(std::move(inVive)));
+
+        /// Finish setting up the Vive.
+        if (!m_vive->startServerDeviceProvider()) {
+            std::cerr
+                << PREFIX
+                << "Error: could not start the server device provider in the "
+                   "Vive driver. Exiting."
+                << std::endl;
+            return false;
+        }
+
+        /// Power the system up.
+        m_vive->serverDevProvider().LeaveStandby();
+
+        auto handleNewDevice =
+            [&](const char *serialNum) {
+                auto dev = m_vive->serverDevProvider().FindTrackedDeviceDriver(
+                    serialNum, vr::ITrackedDeviceServerDriver_Version);
+                if (!dev) {
+                    std::cout
+                        << PREFIX
+                        << "Couldn't find the corresponding device driver for "
+                        << serialNum << std::endl;
+                    return false;
+                }
+                auto ret = m_vive->addAndActivateDevice(dev);
+                if (!ret.first) {
+                    std::cout << PREFIX << "Device with serial number "
+                              << serialNum
+                              << " couldn't be added to the devices vector."
+                              << std::endl;
+                    return false;
+                }
+                std::cout << "\n"
+                          << PREFIX << "Device with s/n " << serialNum
+                          << " activated, assigned ID " << ret.second
+                          << std::endl;
+                return true;
+            };
+
+        m_vive->driverHost().onTrackedDeviceAdded = handleNewDevice;
+
+        {
+            auto numDevices =
+                m_vive->serverDevProvider().GetTrackedDeviceCount();
+            std::cout << PREFIX << "Got " << numDevices
+                      << " tracked devices at startup" << std::endl;
+            for (decltype(numDevices) i = 0; i < numDevices; ++i) {
+                auto dev = m_vive->serverDevProvider().GetTrackedDeviceDriver(
+                    i, vr::ITrackedDeviceServerDriver_Version);
+                m_vive->addAndActivateDevice(dev);
+                std::cout << PREFIX << "Device " << i << std::endl;
+#if 0
+                addDeviceType(dev);
+#endif
+            }
+        }
+
+        /// Finish setting this up as an OSVR device.
         /// Create the initialization options
         OSVR_DeviceInitOptions opts = osvrDeviceCreateInitOptions(ctx);
 
@@ -59,12 +125,17 @@ class ViveDriverHost : public ServerDriverHost {
 
         /// Register update callback
         m_dev.registerUpdateCallback(this);
+
+        return true;
     }
 
-    OSVR_ReturnCode ViveDriverHost::update() { return OSVR_RETURN_SUCCESS; }
+    OSVR_ReturnCode update() {
+        m_vive->serverDevProvider().RunFrame();
+        return OSVR_RETURN_SUCCESS;
+    }
 
-    void ViveDriverHost::TrackedDevicePoseUpdated(uint32_t unWhichDevice,
-                                                  const DriverPose_t &newPose) {
+    void TrackedDevicePoseUpdated(uint32_t unWhichDevice,
+                                  const DriverPose_t &newPose) override {
 
         std::cout << PREFIX << "TrackedDevicePoseUpdated(" << unWhichDevice
                   << ", newPose)" << std::endl;
@@ -86,110 +157,86 @@ class ViveDriverHost : public ServerDriverHost {
         }
     }
 
-    void DeviceDescriptorUpdated(std::string const &json){
-        
+    void DeviceDescriptorUpdated(std::string const &json) {
+
         m_dev.sendJsonDescriptor(json);
     }
 
   private:
     osvr::pluginkit::DeviceToken m_dev;
     OSVR_TrackerDeviceInterface m_tracker;
+    std::unique_ptr<osvr::vive::DriverWrapper> m_vive;
 };
+using DriverHostPtr = std::unique_ptr<ViveDriverHost>;
 
 class HardwareDetection {
+
   public:
     HardwareDetection() {}
     OSVR_ReturnCode operator()(OSVR_PluginRegContext ctx) {
 
-        std::cout << "PLUGIN: Got a hardware detection request" << std::endl;
+        std::cout << PREFIX << "Got a hardware detection request" << std::endl;
 
-        if (m_found) {
+        if (m_driverHost) {
+            // Already found a Vive.
+            /// @todo what are the semantics of the return value from a hardware
+            /// detect?
             return OSVR_RETURN_SUCCESS;
         }
 
-        auto vive = osvr::vive::DriverWrapper(new ViveDriverHost(ctx));
-
-        if (vive.foundDriver()) {
-            std::cout << PREFIX << "Found the Vive driver at "
-                      << vive.getDriverFileLocation() << std::endl;
-        }
-
-        if (!vive.haveDriverLoaded()) {
-            std::cout << PREFIX << "Could not open driver." << std::endl;
-            return OSVR_RETURN_FAILURE;
-        }
-
-        if (vive.foundConfigDirs()) {
-            std::cout << PREFIX
-                      << "Driver config dir is: " << vive.getDriverConfigDir()
-                      << std::endl;
-        }
-
-        if (!vive) {
-            std::cerr << PREFIX
-                      << "Error in first-stage Vive driver startup. Exiting"
-                      << std::endl;
-            return OSVR_RETURN_FAILURE;
-        }
-
-        if (!vive.isHMDPresent()) {
-            std::cerr << PREFIX
-                      << "Driver loaded, but no Vive is connected. Exiting"
-                      << std::endl;
-            return OSVR_RETURN_FAILURE;
-        }
-
-        std::cout << PREFIX << "Vive is connected." << std::endl;
-
-        if (!vive.startServerDeviceProvider()) {
-            std::cerr
-                << PREFIX
-                << "Error: could not start the server device provider in the "
-                   "Vive driver. Exiting."
-                << std::endl;
-            return OSVR_RETURN_FAILURE;
-        }
-
-        /// Power the system up.
-        vive.serverDevProvider().LeaveStandby();
-
-        auto handleNewDevice = [&](const char *serialNum) {
-            auto dev = vive.serverDevProvider().FindTrackedDeviceDriver(
-                serialNum, vr::ITrackedDeviceServerDriver_Version);
-            if (!dev) {
-                std::cout
-                    << PREFIX
-                    << "Couldn't find the corresponding device driver for "
-                    << serialNum << std::endl;
-                return false;
-            }
-            auto ret = vive.addAndActivateDevice(dev);
-            if (!ret.first) {
-                std::cout << PREFIX << "Device with serial number " << serialNum
-                          << " couldn't be added to the devices vector."
-                          << std::endl;
-                return false;
-            }
-            std::cout << "\n" << PREFIX << "Device with s/n " << serialNum
-                      << " activated, assigned ID " << ret.second << std::endl;
-            return true;
-        };
-
-        vive.driverHost().onTrackedDeviceAdded = handleNewDevice;
-
         {
-            auto numDevices = vive.serverDevProvider().GetTrackedDeviceCount();
-            std::cout << PREFIX << "Got " << numDevices
-                      << " tracked devices at startup" << std::endl;
-            for (decltype(numDevices) i = 0; i < numDevices; ++i) {
-                auto dev = vive.serverDevProvider().GetTrackedDeviceDriver(
-                    i, vr::ITrackedDeviceServerDriver_Version);
-                vive.addAndActivateDevice(dev);
-                std::cout << PREFIX << "Device " << i << std::endl;
-                addDeviceType(dev);
+            DriverHostPtr host(new ViveDriverHost);
+
+            auto vive = osvr::vive::DriverWrapper(host.get());
+
+            if (vive.foundDriver()) {
+                std::cout << PREFIX << "Found the Vive driver at "
+                          << vive.getDriverFileLocation() << std::endl;
+            }
+
+            if (!vive.haveDriverLoaded()) {
+                std::cout << PREFIX << "Could not open driver." << std::endl;
+                return OSVR_RETURN_FAILURE;
+            }
+
+            if (vive.foundConfigDirs()) {
+                std::cout << PREFIX << "Driver config dir is: "
+                          << vive.getDriverConfigDir() << std::endl;
+            }
+
+            if (!vive) {
+                std::cerr << PREFIX
+                          << "Error in first-stage Vive driver startup. Exiting"
+                          << std::endl;
+                return OSVR_RETURN_FAILURE;
+            }
+
+            if (!vive.isHMDPresent()) {
+                std::cerr << PREFIX
+                          << "Driver loaded, but no Vive is connected. Exiting"
+                          << std::endl;
+                return OSVR_RETURN_FAILURE;
+            }
+
+            std::cout << PREFIX << "Vive is connected." << std::endl;
+
+            /// Hand the Vive object off to the OSVR driver.
+            auto startResult = host->start(ctx, std::move(vive));
+            if (startResult) {
+                /// and it started up the rest of the way just fine!
+                /// We'll keep the driver around!
+                m_driverHost = std::move(host);
+                std::cout << PREFIX
+                          << "Vive driver finished startup successfully!"
+                          << std::endl;
+                return OSVR_RETURN_SUCCESS;
             }
         }
-        return OSVR_RETURN_SUCCESS;
+
+        std::cout << PREFIX << "Vive driver startup failed somewhere, "
+                               "unloading to perhaps try again later."
+                  << std::endl;
+        return OSVR_RETURN_FAILURE;
     }
 
     static void addDeviceType(vr::ITrackedDeviceServerDriver *dev) {
@@ -198,8 +245,10 @@ class HardwareDetection {
     }
 
   private:
-    bool m_found;
     std::vector<std::string> m_deviceTypes;
+    /// This is the OSVR driver object, which also serves as the "SteamVR"
+    /// driver host. We can only run one Vive at a time.
+    std::unique_ptr<ViveDriverHost> m_driverHost;
 };
 } // namespace
 
