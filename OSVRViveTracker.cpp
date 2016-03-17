@@ -206,69 +206,54 @@ namespace vive {
         std::cout << PREFIX << "TrackedDevicePoseUpdated(" << unWhichDevice
             << ", newPose)" << std::endl;
 #endif
-        OSVR_TimeValue now;
-        osvrTimeValueGetNow(&now);
-        if (newPose.poseIsValid) {
-            TrackingReport out;
-            out.timestamp = osvr::util::time::getNow();
-            out.report.sensor = unWhichDevice;
-            auto &pose = out.report.pose;
-            auto quatFromSteamVR = [](vr::HmdQuaternion_t const &q) {
-                return Eigen::Quaterniond(q.w, q.x, q.y, q.z);
-            };
-#if 1
-            Eigen::Isometry3d driverFromHead;
-            Eigen::Isometry3d worldFromDriver;
-            Eigen::Isometry3d driverPose;
+        if (!newPose.poseIsValid) {
+            return;
+        }
+        TrackingReport out;
+        out.timestamp = osvr::util::time::getNow();
+        out.report.sensor = unWhichDevice;
+        auto &pose = out.report.pose;
+        auto quatFromSteamVR = [](vr::HmdQuaternion_t const &q) {
+            return Eigen::Quaterniond(q.w, q.x, q.y, q.z);
+        };
 
-            auto qRotation = quatFromSteamVR(newPose.qRotation);
-            driverPose.fromPositionOrientationScale(
-                Eigen::Vector3d::Map(newPose.vecPosition), qRotation,
-                Eigen::Vector3d::Ones());
+        using namespace Eigen;
 
-            auto driverFromHeadRotation =
-                quatFromSteamVR(newPose.qDriverFromHeadRotation);
-            driverFromHead.fromPositionOrientationScale(
-                Eigen::Vector3d::Map(newPose.vecDriverFromHeadTranslation),
-                driverFromHeadRotation, Eigen::Vector3d::Ones());
+        auto qRotation = quatFromSteamVR(newPose.qRotation);
 
-            auto worldFromDriverRotation =
-                quatFromSteamVR(newPose.qWorldFromDriverRotation);
-            worldFromDriver.fromPositionOrientationScale(
-                Eigen::Vector3d::Map(newPose.vecWorldFromDriverTranslation),
-                worldFromDriverRotation, Eigen::Vector3d::Ones());
+        auto driverFromHeadRotation =
+            quatFromSteamVR(newPose.qDriverFromHeadRotation);
 
-            // Eigen::Isometry3d full = driverFromHead * worldFromDriver;
-
-            ei::map(pose.translation) =
-                (worldFromDriver * Eigen::Translation3d(Eigen::Vector3d::Map(
-                                       newPose.vecPosition)) *
-                 driverFromHead)
-                    .translation();
-            ei::map(pose.rotation) =
-                worldFromDriverRotation * qRotation * driverFromHeadRotation;
-#endif
+        Isometry3d driverFromHead =
+            Translation3d(Vector3d::Map(newPose.vecDriverFromHeadTranslation)) *
+            driverFromHeadRotation;
 #if 0
-            ei::map(pose.translation) =
-                Eigen::Vector3d::Map(newPose.vecPosition);
-            ei::map(pose.rotation) = quatFromSteamVR(newPose.qRotation);
+        driverFromHead.fromPositionOrientationScale(
+            Vector3d::Map(newPose.vecDriverFromHeadTranslation),
+            driverFromHeadRotation, Vector3d::Ones());
 #endif
+        auto worldFromDriverRotation =
+            quatFromSteamVR(newPose.qWorldFromDriverRotation);
+
+        Isometry3d worldFromDriver =
+            Translation3d(
+                Vector3d::Map(newPose.vecWorldFromDriverTranslation)) *
+            worldFromDriverRotation;
 #if 0
-            ei::map(pose.translation) =
-                Eigen::Vector3d::Map(newPose.vecPosition);
-            Eigen::Quaterniond(newPose.qDriverFromHeadRotation.w, newPose.qDriverFromHeadRotation.x, newPose.qDriverFromHeadRotation.y, newPose.qDriverFromHeadRotation.z)
-            pose.translation.data[0] = newPose.vecPosition[0];
-            pose.translation.data[1] = newPose.vecPosition[1];
-            pose.translation.data[2] = newPose.vecPosition[2];
-            osvrQuatSetW(&pose.rotation, newPose.qRotation.w);
-            osvrQuatSetX(&pose.rotation, newPose.qRotation.x);
-            osvrQuatSetY(&pose.rotation, newPose.qRotation.y);
-            osvrQuatSetZ(&pose.rotation, newPose.qRotation.z);
+        worldFromDriver.fromPositionOrientationScale(
+            Eigen::Vector3d::Map(newPose.vecWorldFromDriverTranslation),
+            worldFromDriverRotation, Eigen::Vector3d::Ones());
 #endif
-            {
-                std::lock_guard<std::mutex> lock(m_mutex);
-                m_trackingReports.push_back(std::move(out));
-            }
+        ei::map(pose.translation) =
+            (worldFromDriver *
+             Eigen::Translation3d(Eigen::Vector3d::Map(newPose.vecPosition)) *
+             driverFromHead)
+                .translation();
+        ei::map(pose.rotation) =
+            worldFromDriverRotation * qRotation * driverFromHeadRotation;
+        {
+            std::lock_guard<std::mutex> lock(m_mutex);
+            m_trackingReports.push_back(std::move(out));
         }
     }
 
