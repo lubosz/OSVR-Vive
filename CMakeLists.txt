@@ -17,6 +17,7 @@ endif()
 find_package(osvr REQUIRED)
 find_package(JsonCpp REQUIRED)
 find_package(Boost REQUIRED COMPONENTS system iostreams filesystem)
+find_package(Eigen3 REQUIRED)
 
 # Interface target for the openvr_driver.h header we'll use to interact with the target driver.
 add_library(OpenVRDriver INTERFACE)
@@ -81,6 +82,9 @@ osvr_add_plugin(com_osvr_Vive
     "${CMAKE_CURRENT_BINARY_DIR}/com_osvr_Vive_json.h")
 
 target_link_libraries(com_osvr_Vive ViveLoaderLib)
+target_include_directories(com_osvr_Vive
+    PRIVATE
+    ${EIGEN3_INCLUDE_DIR})
 
 # Build the executable
 add_executable(ViveLoader
