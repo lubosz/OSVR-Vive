@@ -202,9 +202,8 @@ namespace vive {
         firstRes["height"] = height;
     }
 
-    void DisplayDescriptor::setRGBMeshExternalFile(std::string const & fn)
-    {
-        Json::Value & distortion = impl_->get("distortion");
+    void DisplayDescriptor::setRGBMeshExternalFile(std::string const &fn) {
+        Json::Value &distortion = impl_->get("distortion");
         distortion["rgb_point_samples_external_file"] = fn;
     }
 
