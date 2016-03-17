@@ -21,6 +21,8 @@
 
 // Internal Includes
 #include "DriverWrapper.h"
+#include "InterfaceTraits.h"
+#include "PropertyHelper.h"
 #include <osvr/PluginKit/PluginKit.h>
 #include <osvr/PluginKit/TrackerInterfaceC.h>
 #include <osvr/Util/PlatformConfig.h>
@@ -36,6 +38,8 @@
 #include <iostream>
 #include <memory>
 #include <vector>
+
+using namespace osvr::vive;
 
 using namespace vr;
 
@@ -78,7 +82,7 @@ class ViveDriverHost : public ServerDriverHost {
                         << serialNum << std::endl;
                     return false;
                 }
-                auto ret = m_vive->addAndActivateDevice(dev);
+                auto ret = activateDevice(dev);
                 if (!ret.first) {
                     std::cout << PREFIX << "Device with serial number "
                               << serialNum
@@ -103,8 +107,8 @@ class ViveDriverHost : public ServerDriverHost {
             for (decltype(numDevices) i = 0; i < numDevices; ++i) {
                 auto dev = m_vive->serverDevProvider().GetTrackedDeviceDriver(
                     i, vr::ITrackedDeviceServerDriver_Version);
-                m_vive->addAndActivateDevice(dev);
-                std::cout << PREFIX << "Device " << i << std::endl;
+                activateDevice(dev);
+
 #if 0
                 addDeviceType(dev);
 #endif
@@ -127,6 +131,42 @@ class ViveDriverHost : public ServerDriverHost {
         m_dev.registerUpdateCallback(this);
 
         return true;
+    }
+
+    std::pair<bool, std::uint32_t>
+    activateDevice(vr::ITrackedDeviceServerDriver *dev) {
+        auto ret = activateDeviceImpl(dev);
+        auto mfrProp = getStringProperty(dev, vr::Prop_ManufacturerName_String);
+        auto modelProp = getStringProperty(dev, vr::Prop_ModelNumber_String);
+        auto serialProp = getStringProperty(dev, vr::Prop_SerialNumber_String);
+        std::cout << PREFIX;
+        if (ret.first) {
+            std::cout << "Assigned sensor ID " << ret.second << " to ";
+        } else {
+            std::cout << "Could not assign a sensor ID to ";
+        }
+        std::cout << mfrProp.first << " " << modelProp.first << " "
+                  << serialProp.first << std::endl;
+        return ret;
+    }
+    std::pair<bool, std::uint32_t>
+    activateDeviceImpl(vr::ITrackedDeviceServerDriver *dev) {
+        auto &devs = m_vive->devices();
+        if (getComponent<vr::IVRDisplayComponent>(dev)) {
+            /// This is the HMD, since it has the display component.
+            /// Always sensor 0.
+            return devs.addAndActivateDeviceAt(dev, 0);
+        }
+        if (getComponent<vr::IVRControllerComponent>(dev)) {
+            /// This is a controller.
+            for (auto ctrlIdx : {1, 2}) {
+                if (!devs.hasDeviceAt(ctrlIdx)) {
+                    return devs.addAndActivateDeviceAt(dev, ctrlIdx);
+                }
+            }
+        }
+        /// This still may be a controller, if somehow there are more than 2...
+        return devs.addAndActivateDevice(dev);
     }
 
     OSVR_ReturnCode update() {

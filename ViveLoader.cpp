@@ -126,7 +126,7 @@ int main() {
                       << serialNum << std::endl;
             return false;
         }
-        auto ret = vive.addAndActivateDevice(dev);
+        auto ret = vive.devices().addAndActivateDevice(dev);
         if (!ret.first) {
             std::cout << PREFIX << "Device with serial number " << serialNum
                       << " couldn't be added to the devices vector."
@@ -149,7 +149,7 @@ int main() {
         for (decltype(numDevices) i = 0; i < numDevices; ++i) {
             auto dev = vive.serverDevProvider().GetTrackedDeviceDriver(
                 i, vr::ITrackedDeviceServerDriver_Version);
-            vive.addAndActivateDevice(dev);
+            vive.devices().addAndActivateDevice(dev);
             std::cout << PREFIX << "Device " << i << std::endl;
             whatIsThisDevice(dev);
         }

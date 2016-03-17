@@ -258,7 +258,7 @@ int main() {
             for (decltype(numDevices) i = 0; i < numDevices; ++i) {
                 auto dev = vive.serverDevProvider().GetTrackedDeviceDriver(
                     i, vr::ITrackedDeviceServerDriver_Version);
-                vive.addAndActivateDevice(dev);
+                vive.devices().addAndActivateDevice(dev);
                 std::cout << PREFIX << "Device " << i << std::endl;
                 auto disp =
                     osvr::vive::getComponent<vr::IVRDisplayComponent>(dev);

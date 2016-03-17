@@ -48,6 +48,7 @@ endif()
 
 # Put the shared files into a static library, so we don't recompile them multiple times.
 add_library(ViveLoaderLib STATIC
+    DeviceHolder.h
     DriverLoader.cpp
     DriverLoader.h
     DriverWrapper.h
