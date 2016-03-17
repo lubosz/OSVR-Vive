@@ -1,7 +1,7 @@
 {
 	"deviceVendor": "HTC",
-	"deviceName": "Vive",
-	"author": "Georgiy Frolov gfrolov@sensics.com",
+	"deviceName": "Vive PRE",
+	"author": "Georgiy Frolov <gfrolov@sensics.com>",
 	"version": 1,
 	"lastModified": "",
 	"interfaces": {
@@ -17,12 +17,18 @@
 			"$target": "tracker/0"
 		},
 		"controller": {
-			"left": "tracker/1",
-			"right": "tracker/2"
+			"left": {
+				"$target": "tracker/1"
+			},
+			"right": {
+				"$target": "tracker/2"
+			}
 		}
 	},
 	"automaticAliases": {
-		"/me/head": "semantic/head/",
-		"/me/controller": "semantic/controller"
+		"/me/head": "semantic/head",
+		"/controller": "semantic/controller/*",
+		"/me/hands/left": "semantic/controller/left",
+		"/me/hands/right": "semantic/controller/right"
 	}
 }
