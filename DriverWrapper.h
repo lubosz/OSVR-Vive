@@ -36,12 +36,161 @@
 
 // Standard includes
 #include <cstdint>
+#include <iterator>
 #include <memory>
 #include <stdexcept>
 #include <vector>
 
 namespace osvr {
 namespace vive {
+
+    class DeviceHolder {
+      public:
+        DeviceHolder() = default;
+        ~DeviceHolder() {
+            if (deactivateOnShutdown_) {
+                deactivateAll();
+            }
+        }
+        DeviceHolder(DeviceHolder const &) = delete;
+        DeviceHolder &operator=(DeviceHolder const &) = delete;
+
+        /// move constructible
+        DeviceHolder(DeviceHolder &&other)
+            : devices_(std::move(other.devices_)),
+              deactivateOnShutdown_(other.deactivateOnShutdown_) {
+            other.disableDeactivateOnShutdown();
+        }
+
+        /// move assignment
+        DeviceHolder &operator=(DeviceHolder &&other) {
+            if (&other == this) {
+                return *this;
+            }
+            if (deactivateOnShutdown_) {
+                deactivateAll();
+            }
+            devices_ = std::move(other.devices_);
+            deactivateOnShutdown_ = other.deactivateOnShutdown_;
+            other.disableDeactivateOnShutdown();
+            return *this;
+        }
+
+        std::pair<bool, std::uint32_t>
+        addAndActivateDevice(vr::ITrackedDeviceServerDriver *dev) {
+            /// check to make sure it's not null and not already in there
+            if (!dev || findDevice(dev).first) {
+                return std::make_pair(false, 0);
+            }
+            auto it = std::find(begin(devices_), end(devices_), dev);
+            if (it != end(devices_)) {
+            }
+            auto newId = static_cast<std::uint32_t>(devices_.size());
+            devices_.push_back(dev);
+            dev->Activate(newId);
+            return std::make_pair(true, newId);
+        }
+
+        /// Add and activate a device at a reserved id.
+        std::pair<bool, std::uint32_t>
+        addAndActivateDeviceAt(vr::ITrackedDeviceServerDriver *dev,
+                               std::uint32_t idx) {
+            /// check to make sure it's not null and not already in there
+            if (!dev) {
+                return std::make_pair(false, 0);
+            }
+            auto existing = findDevice(dev);
+            if (existing.first && !existing.second == idx) {
+                // if we already found it in there and it's not at the desired
+                // index...
+                return std::make_pair(false, existing.second);
+            }
+
+            if (existing.first) {
+                // well, in this case, we might need to just activate it again.
+                dev->Activate(idx);
+                return std::make_pair(true, idx);
+            }
+
+            if (!(idx < devices_.size())) {
+                // OK, we need to reserve more room.
+                reserve(idx + 1);
+            }
+
+            if (devices_[idx]) {
+                // there's already somebody else there...
+                return std::make_pair(false, 0);
+            }
+
+            /// Finally, if we made it through that, it's our turn.
+            devices_[idx] = dev;
+            dev->Activate(idx);
+
+            return std::make_pair(true, idx);
+        }
+
+        /// Reserve the first n ids, if not already allocated, for manual
+        /// allocation.
+        /// @return true if this action resulted in any actual addition of null
+        /// entries to the device list.
+        bool reserve(std::uint32_t n) {
+            if (devices_.size() < n) {
+                devices_.resize(n, nullptr);
+                return true;
+            }
+            return false;
+        }
+
+        bool hasDeviceAt(const std::uint32_t idx) const {
+            return (idx < devices_.size()) && (nullptr != devices_[idx]);
+        }
+
+        vr::ITrackedDeviceServerDriver &
+        getDevice(const std::uint32_t idx) const {
+            return *devices_.at(idx);
+        }
+
+        /// @return a (found, index) pair for a non-null device pointer.
+        std::pair<bool, std::uint32_t>
+        findDevice(vr::ITrackedDeviceServerDriver *dev) {
+
+            auto it = std::find(begin(devices_), end(devices_), dev);
+            if (it == end(devices_)) {
+                return std::make_pair(false, 0);
+            }
+            return std::make_pair(
+                true,
+                static_cast<std::uint32_t>(std::distance(begin(devices_), it)));
+        }
+
+        /// @return false if there was no device there to deactivate.
+        bool deactivate(std::uint32_t idx) {
+            if (idx < devices_.size() && devices_[idx]) {
+                devices_[idx]->Deactivate();
+                devices_[idx] = nullptr;
+                return true;
+            }
+            return false;
+        }
+
+        void deactivateAll() {
+            for (auto &dev : devices_) {
+                if (dev) {
+                    dev->Deactivate();
+                    dev = nullptr;
+                }
+            }
+        }
+
+        /// Set whether all devices should be deactivated on shutdown - defaults
+        /// to true, so you might just want to set to false if, for instance,
+        /// you deactivate and power off the devices on shutdown yourself.
+        void disableDeactivateOnShutdown() { deactivateOnShutdown_ = false; }
+
+      private:
+        bool deactivateOnShutdown_ = true;
+        std::vector<vr::ITrackedDeviceServerDriver *> devices_;
+    };
     class DriverWrapper {
       public:
         using DriverVector = std::vector<vr::ITrackedDeviceServerDriver *>;
