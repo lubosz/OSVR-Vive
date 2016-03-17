@@ -10,12 +10,20 @@
 			"bounded": true,
 			"position": true,
 			"orientation": true
+		},
+		"analog": {
+			"count": 1
+		},
+		"button": {
+			"count": 1
 		}
 	},
 	"semantic": {
 		"head": {
-			"$target": "tracker/0"
+			"$target": "tracker/0",
+			"proximity": "button/0"
 		},
+		"ipd": "analog/0",
 		"controller": {
 			"left": {
 				"$target": "tracker/1"
@@ -27,6 +35,7 @@
 	},
 	"automaticAliases": {
 		"/me/head": "semantic/head",
+		"/me/ipd": "semantic/ipd",
 		"/controller": "semantic/controller/*",
 		"/me/hands/left": "semantic/controller/left",
 		"/me/hands/right": "semantic/controller/right"
