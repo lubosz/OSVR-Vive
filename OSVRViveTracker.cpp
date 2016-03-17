@@ -32,13 +32,16 @@
 #include "com_osvr_Vive_json.h"
 
 // Library/third-party includes
-// - none
+#include <osvr/Util/EigenCoreGeometry.h>
+#include <osvr/Util/EigenInterop.h>
 
 // Standard includes
 // - none
 
 namespace osvr {
 namespace vive {
+
+    namespace ei = osvr::util::eigen_interop;
 
     static const auto NUM_ANALOGS = 1;
     static const auto IPD_ANALOG = 0;
@@ -210,13 +213,52 @@ namespace vive {
             out.timestamp = osvr::util::time::getNow();
             out.report.sensor = unWhichDevice;
             auto &pose = out.report.pose;
+            auto quatFromSteamVR = [](vr::HmdQuaternion_t const &q) {
+                return Eigen::Quaterniond(q.w, q.x, q.y, q.z);
+            };
+#if 1
+            Eigen::Isometry3d driverFromHead;
+            Eigen::Isometry3d worldFromDriver;
+            Eigen::Isometry3d driverPose;
+
+            auto qRotation = quatFromSteamVR(newPose.qRotation);
+            driverPose.fromPositionOrientationScale(
+                Eigen::Vector3d::Map(newPose.vecPosition), qRotation,
+                Eigen::Vector3d::Ones());
+            /*
+        driverFromHead.fromPositionOrientationScale(
+            Eigen::Vector3d::Map(newPose.vecDriverFromHeadTranslation),
+            quatFromSteamVR(newPose.qDriverFromHeadRotation),
+            Eigen::Vector3d::Ones());
+            */
+            auto worldFromDriverRotation =
+                quatFromSteamVR(newPose.qWorldFromDriverRotation);
+            worldFromDriver.fromPositionOrientationScale(
+                Eigen::Vector3d::Map(newPose.vecWorldFromDriverTranslation),
+                worldFromDriverRotation, Eigen::Vector3d::Ones());
+            // Eigen::Isometry3d full = driverFromHead * worldFromDriver;
+
+            ei::map(pose.translation) =
+                worldFromDriver * Eigen::Vector3d::Map(newPose.vecPosition);
+            ei::map(pose.rotation) = qRotation * worldFromDriverRotation;
+#endif
+#if 0
+            ei::map(pose.translation) =
+                Eigen::Vector3d::Map(newPose.vecPosition);
+            ei::map(pose.rotation) = quatFromSteamVR(newPose.qRotation);
+#endif
+#if 0
+            ei::map(pose.translation) =
+                Eigen::Vector3d::Map(newPose.vecPosition);
+            Eigen::Quaterniond(newPose.qDriverFromHeadRotation.w, newPose.qDriverFromHeadRotation.x, newPose.qDriverFromHeadRotation.y, newPose.qDriverFromHeadRotation.z)
             pose.translation.data[0] = newPose.vecPosition[0];
             pose.translation.data[1] = newPose.vecPosition[1];
             pose.translation.data[2] = newPose.vecPosition[2];
-            pose.rotation.data[0] = newPose.qRotation.w;
-            pose.rotation.data[1] = newPose.qRotation.x;
-            pose.rotation.data[2] = newPose.qRotation.y;
-            pose.rotation.data[3] = newPose.qRotation.z;
+            osvrQuatSetW(&pose.rotation, newPose.qRotation.w);
+            osvrQuatSetX(&pose.rotation, newPose.qRotation.x);
+            osvrQuatSetY(&pose.rotation, newPose.qRotation.y);
+            osvrQuatSetZ(&pose.rotation, newPose.qRotation.z);
+#endif
             {
                 std::lock_guard<std::mutex> lock(m_mutex);
                 m_trackingReports.push_back(std::move(out));
