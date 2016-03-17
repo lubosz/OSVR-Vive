@@ -136,10 +136,10 @@ class ViveDriverHost : public ServerDriverHost {
 
     void TrackedDevicePoseUpdated(uint32_t unWhichDevice,
                                   const DriverPose_t &newPose) override {
-
+#if 0
         std::cout << PREFIX << "TrackedDevicePoseUpdated(" << unWhichDevice
                   << ", newPose)" << std::endl;
-
+#endif
         OSVR_TimeValue now;
         osvrTimeValueGetNow(&now);
         if (newPose.poseIsValid) {
