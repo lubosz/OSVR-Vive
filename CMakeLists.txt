@@ -87,8 +87,16 @@ target_link_libraries(ViveLoader PRIVATE ViveLoaderLib)
 copy_imported_targets(ViveLoader osvr::osvrUtil)
 
 # Build another tool
-add_executable(DisplayExtractor DisplayExtractor.cpp)
-target_link_libraries(DisplayExtractor PRIVATE ViveLoaderLib)
+
+osvr_convert_json(viveDisplayInput
+    input/HTC_Vive_PRE.json
+    "${CMAKE_CURRENT_BINARY_DIR}/viveDisplayInput.h")
+add_executable(DisplayExtractor
+    DisplayDescriptor.cpp
+    DisplayDescriptor.h
+    DisplayExtractor.cpp
+    "${CMAKE_CURRENT_BINARY_DIR}/viveDisplayInput.h")
+target_link_libraries(DisplayExtractor PRIVATE ViveLoaderLib JsonCpp::JsonCpp)
 copy_imported_targets(DisplayExtractor osvr::osvrUtil)
 
 # Install files for the plugin.

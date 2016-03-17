@@ -78,14 +78,7 @@ namespace vive {
             configDirs_ = findConfigDirs(driverLocation_);
         }
 
-        ~DriverWrapper() {
-            serverDriverHost_->setExiting();
-            if (deactivateOnShutdown_) {
-                for (auto &dev : devices_) {
-                    dev->Deactivate();
-                }
-            }
-        }
+        ~DriverWrapper() { stop(); }
 
         DriverWrapper(DriverWrapper const &) = delete;
         DriverWrapper &operator=(DriverWrapper const &) = delete;
@@ -201,8 +194,22 @@ namespace vive {
         /// Set whether all devices should be deactivated on shutdown - defaults
         /// to true, so you might just want to set to false if, for instance,
         /// you deactivate and power off the devices on shutdown yourself.
-        void shouldDeactivateDeviceOnShutdown(bool deactivate) {
-            deactivateOnShutdown_ = deactivate;
+        void disableDeactivateOnShutdown() { deactivateOnShutdown_ = false; }
+
+        /// Indicate to the system that you're preparing to stop the system.
+        ///
+        /// Sets the exiting flag on the server driver host, and if still
+        /// enabled, deactivates all devices.
+        void stop() {
+            if (haveServerDeviceHost()) {
+                serverDriverHost_->setExiting();
+            }
+            if (deactivateOnShutdown_) {
+                for (auto &dev : devices_) {
+                    dev->Deactivate();
+                }
+                disableDeactivateOnShutdown();
+            }
         }
 
       private:
