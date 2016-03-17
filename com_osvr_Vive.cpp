@@ -23,6 +23,7 @@
 #include "DriverWrapper.h"
 #include "InterfaceTraits.h"
 #include "PropertyHelper.h"
+#include <osvr/PluginKit/AnalogInterfaceC.h>
 #include <osvr/PluginKit/PluginKit.h>
 #include <osvr/PluginKit/TrackerInterfaceC.h>
 #include <osvr/Util/PlatformConfig.h>
@@ -35,8 +36,12 @@
 #include <openvr_driver.h>
 
 // Standard includes
+#include <chrono>
+#include <deque>
 #include <iostream>
 #include <memory>
+#include <mutex>
+#include <thread>
 #include <vector>
 
 using namespace osvr::vive;
@@ -45,6 +50,16 @@ using namespace vr;
 
 // Anonymous namespace to avoid symbol collision
 namespace {
+
+struct TrackingReport {
+    OSVR_TimeValue timestamp;
+    OSVR_PoseReport report;
+};
+
+using TrackingDeque = std::deque<TrackingReport>;
+
+static const auto NUM_ANALOGS = 1;
+static const auto IPD_ANALOG = 0;
 static const auto PREFIX = "[OSVR-Vive] ";
 class ViveDriverHost : public ServerDriverHost {
   public:
@@ -120,8 +135,11 @@ class ViveDriverHost : public ServerDriverHost {
         OSVR_DeviceInitOptions opts = osvrDeviceCreateInitOptions(ctx);
 
         osvrDeviceTrackerConfigure(opts, &m_tracker);
+        osvrDeviceAnalogConfigure(opts, &m_analog, NUM_ANALOGS);
 
-        /// Create the sync device token with the options
+        /// Because the callbacks may not come from the same thread that calls
+        /// RunFrame, we need to be careful to not send directly from those
+        /// callbacks.
         m_dev.initSync(ctx, "Vive", opts);
 
         /// Send JSON descriptor
@@ -130,7 +148,26 @@ class ViveDriverHost : public ServerDriverHost {
         /// Register update callback
         m_dev.registerUpdateCallback(this);
 
+        m_mainThread = std::this_thread::get_id();
         return true;
+    }
+
+    OSVR_ReturnCode update() {
+        m_vive->serverDevProvider().RunFrame();
+        {
+            std::lock_guard<std::mutex> lock(m_mutex);
+            /// Handle a fixed number of tracking reports that have been queued
+            /// up.
+            auto numTrackers = m_trackingReports.size();
+            for (std::size_t i = 0; i < numTrackers; ++i) {
+                auto &out = m_trackingReports.front();
+                osvrDeviceTrackerSendPoseTimestamped(
+                    m_dev, m_tracker, &out.report.pose, out.report.sensor,
+                    &out.timestamp);
+                m_trackingReports.pop_front();
+            }
+        }
+        return OSVR_RETURN_SUCCESS;
     }
 
     std::pair<bool, std::uint32_t>
@@ -169,13 +206,14 @@ class ViveDriverHost : public ServerDriverHost {
         return devs.addAndActivateDevice(dev);
     }
 
-    OSVR_ReturnCode update() {
-        m_vive->serverDevProvider().RunFrame();
-        return OSVR_RETURN_SUCCESS;
-    }
-
     void TrackedDevicePoseUpdated(uint32_t unWhichDevice,
                                   const DriverPose_t &newPose) override {
+#if 0
+        if (std::this_thread::get_id() != m_mainThread) {
+            std::cout << PREFIX << "Callback from a different thread!"
+                      << std::endl;
+        }
+#endif
 #if 0
         std::cout << PREFIX << "TrackedDevicePoseUpdated(" << unWhichDevice
                   << ", newPose)" << std::endl;
@@ -183,7 +221,10 @@ class ViveDriverHost : public ServerDriverHost {
         OSVR_TimeValue now;
         osvrTimeValueGetNow(&now);
         if (newPose.poseIsValid) {
-            OSVR_PoseState pose;
+            TrackingReport out;
+            out.timestamp = osvr::util::time::getNow();
+            out.report.sensor = unWhichDevice;
+            auto &pose = out.report.pose;
             pose.translation.data[0] = newPose.vecPosition[0];
             pose.translation.data[1] = newPose.vecPosition[1];
             pose.translation.data[2] = newPose.vecPosition[2];
@@ -191,10 +232,30 @@ class ViveDriverHost : public ServerDriverHost {
             pose.rotation.data[1] = newPose.qRotation.x;
             pose.rotation.data[2] = newPose.qRotation.y;
             pose.rotation.data[3] = newPose.qRotation.z;
-
+            {
+                std::lock_guard<std::mutex> lock(m_mutex);
+                m_trackingReports.push_back(std::move(out));
+#if 0
             osvrDeviceTrackerSendPoseTimestamped(m_dev, m_tracker, &pose,
                                                  unWhichDevice, &now);
+#endif
+            }
         }
+    }
+
+    void PhysicalIpdSet(uint32_t unWhichDevice,
+                        float fPhysicalIpdMeters) override {
+/// @todo
+#if 0
+        auto now = osvr::util::time::getNow();
+        osvrDeviceAnalogSetValueTimestamped(m_dev, m_analog, fPhysicalIpdMeters,
+                                            IPD_ANALOG, &now);
+#endif
+    }
+
+    void ProximitySensorState(uint32_t unWhichDevice,
+                              bool bProximitySensorTriggered) override {
+        /// @todo
     }
 
     void DeviceDescriptorUpdated(std::string const &json) {
@@ -205,7 +266,12 @@ class ViveDriverHost : public ServerDriverHost {
   private:
     osvr::pluginkit::DeviceToken m_dev;
     OSVR_TrackerDeviceInterface m_tracker;
+    OSVR_AnalogDeviceInterface m_analog;
     std::unique_ptr<osvr::vive::DriverWrapper> m_vive;
+    std::thread::id m_mainThread;
+
+    std::mutex m_mutex;
+    TrackingDeque m_trackingReports;
 };
 using DriverHostPtr = std::unique_ptr<ViveDriverHost>;
 
