@@ -138,18 +138,24 @@ namespace vive {
         m_vive->serverDevProvider().RunFrame();
         {
             std::lock_guard<std::mutex> lock(m_mutex);
-            /// Handle a fixed number of tracking reports that have been
-            /// queued
-            /// up.
+            /// Copy a fixed number of tracking reports that have been
+            /// queued up.
             auto numTrackers = m_trackingReports.size();
             for (std::size_t i = 0; i < numTrackers; ++i) {
-                auto &out = m_trackingReports.front();
-                osvrDeviceTrackerSendPoseTimestamped(
-                    m_dev, m_tracker, &out.report.pose, out.report.sensor,
-                    &out.timestamp);
+                m_currentTrackingReports.push_back(m_trackingReports.front());
                 m_trackingReports.pop_front();
             }
+
+        } // unlock
+        // Now that we're out of that mutex, we can go ahead and actually send
+        // the reports.
+        for (auto &out : m_currentTrackingReports) {
+            osvrDeviceTrackerSendPoseTimestamped(
+                m_dev, m_tracker, &out.report.pose, out.report.sensor,
+                &out.timestamp);
         }
+        // then clear this temporary buffer for next time.
+        m_currentTrackingReports.clear();
         return OSVR_RETURN_SUCCESS;
     }
 

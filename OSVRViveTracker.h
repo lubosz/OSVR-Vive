@@ -44,6 +44,7 @@
 #include <memory>
 #include <mutex>
 #include <utility>
+#include <vector>
 
 namespace osvr {
 namespace vive {
@@ -53,6 +54,7 @@ namespace vive {
     };
 
     using TrackingDeque = std::deque<TrackingReport>;
+    using TrackingVector = std::vector<TrackingReport>;
 
     class DriverWrapper;
 
@@ -100,6 +102,9 @@ namespace vive {
 
         std::mutex m_mutex;
         TrackingDeque m_trackingReports;
+
+        /// Current reports - main thread only
+        TrackingVector m_currentTrackingReports;
     };
     using DriverHostPtr = std::unique_ptr<ViveDriverHost>;
 
