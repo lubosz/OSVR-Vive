@@ -94,6 +94,9 @@ namespace vive {
 
         m_vive->driverHost().onTrackedDeviceAdded = handleNewDevice;
 
+        /// Reserve ID 0 for the HMD
+        m_vive->devices().reserveIds(1);
+
         {
             auto numDevices =
                 m_vive->serverDevProvider().GetTrackedDeviceCount();
