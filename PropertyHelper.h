@@ -40,9 +40,8 @@
 
 namespace osvr {
 namespace vive {
-    std::pair<std::string, vr::ETrackedPropertyError>
-    getStringProperty(vr::ITrackedDeviceServerDriver *dev,
-                      vr::ETrackedDeviceProperty prop) {
+    std::pair<std::string, vr::ETrackedPropertyError> inline getStringProperty(
+        vr::ITrackedDeviceServerDriver *dev, vr::ETrackedDeviceProperty prop) {
         assert(dev != nullptr &&
                "Tried to get a string property from a null device "
                "pointer.");
