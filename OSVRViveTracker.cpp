@@ -225,22 +225,28 @@ namespace vive {
             driverPose.fromPositionOrientationScale(
                 Eigen::Vector3d::Map(newPose.vecPosition), qRotation,
                 Eigen::Vector3d::Ones());
-            /*
-        driverFromHead.fromPositionOrientationScale(
-            Eigen::Vector3d::Map(newPose.vecDriverFromHeadTranslation),
-            quatFromSteamVR(newPose.qDriverFromHeadRotation),
-            Eigen::Vector3d::Ones());
-            */
+
+            auto driverFromHeadRotation =
+                quatFromSteamVR(newPose.qDriverFromHeadRotation);
+            driverFromHead.fromPositionOrientationScale(
+                Eigen::Vector3d::Map(newPose.vecDriverFromHeadTranslation),
+                driverFromHeadRotation, Eigen::Vector3d::Ones());
+
             auto worldFromDriverRotation =
                 quatFromSteamVR(newPose.qWorldFromDriverRotation);
             worldFromDriver.fromPositionOrientationScale(
                 Eigen::Vector3d::Map(newPose.vecWorldFromDriverTranslation),
                 worldFromDriverRotation, Eigen::Vector3d::Ones());
+
             // Eigen::Isometry3d full = driverFromHead * worldFromDriver;
 
             ei::map(pose.translation) =
-                worldFromDriver * Eigen::Vector3d::Map(newPose.vecPosition);
-            ei::map(pose.rotation) = qRotation * worldFromDriverRotation;
+                (worldFromDriver * Eigen::Translation3d(Eigen::Vector3d::Map(
+                                       newPose.vecPosition)) *
+                 driverFromHead)
+                    .translation();
+            ei::map(pose.rotation) =
+                worldFromDriverRotation * qRotation * driverFromHeadRotation;
 #endif
 #if 0
             ei::map(pose.translation) =
