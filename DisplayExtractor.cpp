@@ -39,9 +39,12 @@
 #include <algorithm>
 #include <chrono>
 #include <cmath>
+#include <fstream>
 #include <thread>
 #include <tuple>
-#include <fstream>
+
+/// the number of steps in each dimension
+static const auto MESH_STEPS = 15;
 
 static const auto PREFIX = "[DisplayExtractor] ";
 
@@ -193,7 +196,7 @@ void handleDisplay(vr::ITrackedDeviceServerDriver *dev,
         return;
     }
 
-    auto meshContents = generateMeshFileContents(display, 10);
+    auto meshContents = generateMeshFileContents(display, MESH_STEPS);
     static const auto MeshFilename = "ViveMesh.json";
     {
         std::ofstream os(MeshFilename);
