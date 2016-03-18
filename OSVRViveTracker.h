@@ -35,7 +35,7 @@
 #include <osvr/Util/TimeValue.h>
 
 // Library/third-party includes
-// - none
+#include <osvr/Util/EigenCoreGeometry.h>
 
 // Standard includes
 #include <cstdint>
@@ -49,6 +49,10 @@
 namespace osvr {
 namespace vive {
     struct TrackingReport {
+        bool isUniverseChange = false;
+        /// Only valid if isUniverseChange = true
+        std::uint64_t newUniverse;
+
         OSVR_TimeValue timestamp;
         OSVR_ChannelCount sensor;
         vr::DriverPose_t report;
@@ -61,6 +65,9 @@ namespace vive {
 
     class ViveDriverHost : public ServerDriverHost {
       public:
+        EIGEN_MAKE_ALIGNED_OPERATOR_NEW
+        ViveDriverHost();
+
         /// @return false if we failed to start up for some reason.
         bool start(OSVR_PluginRegContext ctx,
                    osvr::vive::DriverWrapper &&inVive);
@@ -74,7 +81,8 @@ namespace vive {
         std::pair<bool, std::uint32_t>
         activateDevice(vr::ITrackedDeviceServerDriver *dev);
 
-        /// @name ServerDriverHost overrides
+        /// @name ServerDriverHost overrides - called from a tracker thread (not
+        /// the main thread)
         /// @{
         void TrackedDevicePoseUpdated(uint32_t unWhichDevice,
                                       const DriverPose_t &newPose) override;
@@ -84,6 +92,8 @@ namespace vive {
 
         void ProximitySensorState(uint32_t unWhichDevice,
                                   bool bProximitySensorTriggered) override;
+
+        void TrackedDevicePropertiesChanged(uint32_t unWhichDevice) override;
 /// @}
 
 #if 0
@@ -95,22 +105,41 @@ namespace vive {
         std::pair<bool, std::uint32_t>
         activateDeviceImpl(vr::ITrackedDeviceServerDriver *dev);
 
-        /// Called from main thread only!
-        void convertAndSendTracker(OSVR_TimeValue const &tv,
-                                   OSVR_ChannelCount sensor,
-                                   const DriverPose_t &newPose);
-
         osvr::pluginkit::DeviceToken m_dev;
         OSVR_TrackerDeviceInterface m_tracker;
         OSVR_AnalogDeviceInterface m_analog;
 
         std::unique_ptr<osvr::vive::DriverWrapper> m_vive;
 
+        std::uint64_t m_trackingThreadUniverseId = 0;
+
+        /// Can be called from steamvr thread.
+        void submitTrackingReport(uint32_t unWhichDevice,
+                                  OSVR_TimeValue const &tv,
+                                  const DriverPose_t &newPose);
+
+        void submitUniverseChange(std::uint64_t newUniverse);
+
+        /// @name Mutex-controlled
+        /// @{
         std::mutex m_mutex;
         TrackingDeque m_trackingReports;
+        /// @}
 
+        /// @name Main-thread only
+        /// @{
         /// Current reports - main thread only
+        /// Called from main thread only!
+        void convertAndSendTracker(OSVR_TimeValue const &tv,
+                                   OSVR_ChannelCount sensor,
+                                   const DriverPose_t &newPose);
+        void handleUniverseChange(std::uint64_t newUniverse);
+
         TrackingVector m_currentTrackingReports;
+
+        std::uint64_t m_universeId = 0;
+        Eigen::Isometry3d m_universeXform;
+        /// @}
     };
     using DriverHostPtr = std::unique_ptr<ViveDriverHost>;
 

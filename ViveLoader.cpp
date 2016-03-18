@@ -46,6 +46,20 @@ static void whatIsThisDevice(vr::ITrackedDeviceServerDriver *dev) {
         auto disp = osvr::vive::getComponent<vr::IVRDisplayComponent>(dev);
         if (disp) {
             std::cout << PREFIX << "-- it's a display, too!" << std::endl;
+            vr::ETrackedPropertyError err;
+            auto universe = dev->GetUint64TrackedDeviceProperty(
+                vr::Prop_CurrentUniverseId_Uint64, &err);
+            if (vr::TrackedProp_Success == err) {
+                std::cout << PREFIX << " -- In tracking universe " << universe
+                          << std::endl;
+            } else if (vr::TrackedProp_NotYetAvailable == err) {
+                std::cout << PREFIX << " -- Tracking universe not yet known"
+                          << std::endl;
+            } else {
+                std::cout << PREFIX << " -- Some other error trying to figure "
+                                       "out the tracking universe: "
+                          << err << std::endl;
+            }
         }
     }
 

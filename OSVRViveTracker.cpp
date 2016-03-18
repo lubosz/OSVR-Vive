@@ -46,7 +46,14 @@ namespace vive {
     static const auto NUM_ANALOGS = 1;
     static const auto IPD_ANALOG = 0;
 
+    static const auto HMD_SENSOR = 0;
+    static const auto CONTROLLER_SENSORS = {1, 2};
+
     static const auto PREFIX = "[OSVR-Vive] ";
+
+    ViveDriverHost::ViveDriverHost()
+        : m_universeXform(Eigen::Isometry3d::Identity()) {}
+
     bool ViveDriverHost::start(OSVR_PluginRegContext ctx,
                                osvr::vive::DriverWrapper &&inVive) {
         if (!inVive) {
@@ -124,9 +131,9 @@ namespace vive {
         osvrDeviceAnalogConfigure(opts, &m_analog, NUM_ANALOGS);
 
         /// Because the callbacks may not come from the same thread that
-        /// calls
-        /// RunFrame, we need to be careful to not send directly from those
-        /// callbacks.
+        /// calls RunFrame, we need to be careful to not send directly from
+        /// those callbacks. We can't use an Async device token because the
+        /// waits are too long and they goof up the SteamVR Lighthouse driver.
         m_dev.initSync(ctx, "Vive", opts);
 
         /// Send JSON descriptor
@@ -153,7 +160,11 @@ namespace vive {
         // Now that we're out of that mutex, we can go ahead and actually send
         // the reports.
         for (auto &out : m_currentTrackingReports) {
-            convertAndSendTracker(out.timestamp, out.sensor, out.report);
+            if (out.isUniverseChange) {
+                handleUniverseChange(out.newUniverse);
+            } else {
+                convertAndSendTracker(out.timestamp, out.sensor, out.report);
+            }
         }
         // then clear this temporary buffer for next time.
         m_currentTrackingReports.clear();
@@ -183,11 +194,11 @@ namespace vive {
         if (getComponent<vr::IVRDisplayComponent>(dev)) {
             /// This is the HMD, since it has the display component.
             /// Always sensor 0.
-            return devs.addAndActivateDeviceAt(dev, 0);
+            return devs.addAndActivateDeviceAt(dev, HMD_SENSOR);
         }
         if (getComponent<vr::IVRControllerComponent>(dev)) {
             /// This is a controller.
-            for (auto ctrlIdx : {1, 2}) {
+            for (auto ctrlIdx : CONTROLLER_SENSORS) {
                 if (!devs.hasDeviceAt(ctrlIdx)) {
                     return devs.addAndActivateDeviceAt(dev, ctrlIdx);
                 }
@@ -196,6 +207,29 @@ namespace vive {
         /// This still may be a controller, if somehow there are more than
         /// 2...
         return devs.addAndActivateDevice(dev);
+    }
+
+    void ViveDriverHost::submitTrackingReport(uint32_t unWhichDevice,
+                                              OSVR_TimeValue const &tv,
+                                              const DriverPose_t &newPose) {
+        TrackingReport out;
+        out.timestamp = tv;
+        out.sensor = unWhichDevice;
+        out.report = newPose;
+        {
+            std::lock_guard<std::mutex> lock(m_mutex);
+            m_trackingReports.push_back(std::move(out));
+        }
+    }
+
+    void ViveDriverHost::submitUniverseChange(std::uint64_t newUniverse) {
+        TrackingReport out;
+        out.isUniverseChange = true;
+        out.newUniverse = newUniverse;
+        {
+            std::lock_guard<std::mutex> lock(m_mutex);
+            m_trackingReports.push_back(std::move(out));
+        }
     }
 
     void ViveDriverHost::convertAndSendTracker(OSVR_TimeValue const &tv,
@@ -258,20 +292,21 @@ namespace vive {
                                              &tv);
     }
 
+    void ViveDriverHost::handleUniverseChange(std::uint64_t newUniverse) {
+        /// Check to see if it's really a change
+        if (newUniverse == m_universeId) {
+            return;
+        }
+        std::cout << PREFIX << "Change of universe ID from " << m_universeId
+                  << " to " << newUniverse << std::endl;
+
+        /// @todo use the chaperone info now.
+    }
+
     void ViveDriverHost::TrackedDevicePoseUpdated(uint32_t unWhichDevice,
                                                   const DriverPose_t &newPose) {
-#if 0
-        std::cout << PREFIX << "TrackedDevicePoseUpdated(" << unWhichDevice
-            << ", newPose)" << std::endl;
-#endif
-        TrackingReport out;
-        out.timestamp = osvr::util::time::getNow();
-        out.sensor = unWhichDevice;
-        out.report = newPose;
-        {
-            std::lock_guard<std::mutex> lock(m_mutex);
-            m_trackingReports.push_back(std::move(out));
-        }
+        submitTrackingReport(unWhichDevice, osvr::util::time::getNow(),
+                             newPose);
     }
 
     void ViveDriverHost::PhysicalIpdSet(uint32_t unWhichDevice,
@@ -287,6 +322,27 @@ namespace vive {
     void ViveDriverHost::ProximitySensorState(uint32_t unWhichDevice,
                                               bool bProximitySensorTriggered) {
         /// @todo - queue it up and send it from the main thread.
+    }
+
+    void
+    ViveDriverHost::TrackedDevicePropertiesChanged(uint32_t unWhichDevice) {
+        if (HMD_SENSOR == unWhichDevice) {
+            vr::ETrackedPropertyError err;
+            auto universe = m_vive->devices()
+                                .getDevice(HMD_SENSOR)
+                                .GetUint64TrackedDeviceProperty(
+                                    vr::Prop_CurrentUniverseId_Uint64, &err);
+            if (vr::TrackedProp_Success != err) {
+                /// set to invalid universe
+                universe = 0;
+            }
+            /// Check our thread-local copy of the universe ID before submitting
+            /// the message.
+            if (m_trackingThreadUniverseId != universe) {
+                m_trackingThreadUniverseId = universe;
+                submitUniverseChange(universe);
+            }
+        }
     }
 
 #if 0
