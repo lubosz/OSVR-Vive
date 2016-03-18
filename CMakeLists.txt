@@ -58,6 +58,8 @@ set(DISPLAY_SOURCES
 
 # Put the shared files into a static library, so we don't recompile them multiple times.
 add_library(ViveLoaderLib STATIC
+    ChaperoneData.cpp
+    ChaperoneData.h
     DeviceHolder.h
     DriverLoader.cpp
     DriverLoader.h
@@ -77,7 +79,7 @@ target_link_libraries(ViveLoaderLib
     PUBLIC
     OpenVRDriver osvr::osvrUtil linkable_into_dll
     PRIVATE
-    filesystem_lib boost_process)
+    filesystem_lib boost_process JsonCpp::JsonCpp)
 target_include_directories(ViveLoaderLib PRIVATE ${Boost_INCLUDE_DIRS})
 
 # Build the plugin

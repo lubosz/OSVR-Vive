@@ -26,6 +26,7 @@
 #define INCLUDED_DriverWrapper_h_GUID_F3D0F445_80E9_4C85_2CE4_E36293ED03F8
 
 // Internal Includes
+#include "ChaperoneData.h"
 #include "DeviceHolder.h"
 #include "DriverLoader.h"
 #include "FindDriver.h"
@@ -83,6 +84,7 @@ namespace vive {
               serverDriverHost_(std::move(other.serverDriverHost_)),
               driverLocation_(std::move(other.driverLocation_)),
               configDirs_(std::move(other.configDirs_)),
+              chaperone_(std::move(other.chaperone_)),
               loader_(std::move(other.loader_)),
               serverDeviceProvider_(std::move(other.serverDeviceProvider_)),
               devices_(std::move(other.devices_)) {}
@@ -108,6 +110,10 @@ namespace vive {
 
         std::string const &getDriverConfigDir() const {
             return configDirs_.driverConfigDir;
+        }
+
+        std::string const &getRootConfigDir() const {
+            return configDirs_.rootConfigDir;
         }
 
         bool haveDriverLoaded() const {
@@ -184,6 +190,9 @@ namespace vive {
         /// Const access
         DeviceHolder const &devices() const { return devices_; }
 
+        bool haveChaperoneData() const { return static_cast<bool>(chaperone_); }
+        ChaperoneData &chaperone() { return *chaperone_; }
+
         /// Set whether all devices should be deactivated on shutdown - defaults
         /// to true, so you might just want to set to false if, for instance,
         /// you deactivate and power off the devices on shutdown yourself.
@@ -210,12 +219,17 @@ namespace vive {
             if (!foundDriver()) {
                 return;
             }
+            configDirs_ = findConfigDirs(driverLocation_);
+            if (!foundConfigDirs()) {
+                return;
+            }
+            chaperone_.reset(new ChaperoneData(getRootConfigDir()));
+
             loader_ = DriverLoader::make(driverLocation_.driverRoot,
                                          driverLocation_.driverFile);
             if (!haveDriverLoaded()) {
                 return;
             }
-            configDirs_ = findConfigDirs(driverLocation_);
         }
         /// This pointer manages lifetime if we created our own host but isn't
         /// accessed beyond that.
@@ -226,6 +240,7 @@ namespace vive {
 
         DriverLocationInfo driverLocation_;
         ConfigDirs configDirs_;
+        std::unique_ptr<ChaperoneData> chaperone_;
 
         std::unique_ptr<DriverLoader> loader_;
         ProviderPtr<vr::IServerTrackedDeviceProvider> serverDeviceProvider_;

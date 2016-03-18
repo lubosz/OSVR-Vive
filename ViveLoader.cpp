@@ -23,8 +23,10 @@
 // limitations under the License.
 
 // Internal Includes
+#include "ChaperoneData.h"
 #include "DriverWrapper.h"
 #include "GetComponent.h"
+#include "PropertyHelper.h"
 
 // Library/third-party includes
 #include <openvr_driver.h>
@@ -78,6 +80,60 @@ static void whatIsThisDevice(vr::ITrackedDeviceServerDriver *dev) {
         }
     }
     std::cout << "\n";
+}
+
+void lookForUniverseData(osvr::vive::DriverWrapper &vive) {
+    if (!vive.haveChaperoneData()) {
+        std::cout
+            << PREFIX
+            << "DriverWrapper couldn't get to starting up the chaperone data."
+            << std::endl;
+        return;
+    }
+    if (!vive.chaperone()) {
+        std::cout << PREFIX
+                  << "Chaperone data error: " << vive.chaperone().getMessage()
+                  << std::endl;
+        return;
+    }
+
+    if (vive.chaperone().hasMessages()) {
+        std::cout << PREFIX
+                  << "Chaperone data warning: " << vive.chaperone().getMessage()
+                  << std::endl;
+    }
+
+    std::uint64_t universe = 0;
+    for (auto &devPtr :
+         vive.devices().rawDeviceVectorAccess_NOT_RECOMMENDED_TODO_FIXME()) {
+        if (!devPtr) {
+            continue;
+        }
+        vr::ETrackedPropertyError err;
+        auto myUniverse = devPtr->GetUint64TrackedDeviceProperty(
+            vr::Prop_CurrentUniverseId_Uint64, &err);
+        if (vr::TrackedProp_Success != err || myUniverse == 0) {
+            continue;
+        }
+        auto model =
+            osvr::vive::getStringProperty(devPtr, vr::Prop_ModelNumber_String)
+                .first;
+        std::cout << PREFIX << "Got a real universe (" << myUniverse
+                  << ") from " << model << std::endl;
+        universe = myUniverse;
+    }
+
+    if (vive.chaperone().knowUniverseId(universe)) {
+        std::cout << PREFIX << "ChaperoneData has info on universe " << universe
+                  << std::endl;
+        auto data = vive.chaperone().getDataForUniverse(universe);
+        std::cout << PREFIX << "Translation: [" << data.translation[0] << ", "
+                  << data.translation[1] << ", " << data.translation[2]
+                  << "], yaw " << data.yaw << std::endl;
+    } else {
+        std::cout << PREFIX << "ChaperoneData sadly has no info on universe "
+                  << universe << std::endl;
+    }
 }
 
 int main() {
@@ -171,16 +227,21 @@ int main() {
     }
 
     std::cout << "*** Entering dummy mainloop" << std::endl;
-    for (int i = 0; i < 200; ++i) {
+    for (int i = 0; i < 3000; ++i) {
         vive.serverDevProvider().RunFrame();
         std::this_thread::sleep_for(std::chrono::milliseconds(1));
     }
+    std::cout << "*** Done with dummy mainloop" << std::endl;
 
-    /// The vive object will automatically deactivate all of them.
+    lookForUniverseData(vive);
+
+    /// The vive object will automatically deactivate all of them on
+    /// destruction, or on a call to stop().
+    std::cout << PREFIX << "Stopping the Vive." << std::endl;
+    vive.stop();
 
     /// This line will turn off the wireless wands.
     // vive.serverDevProvider().EnterStandby();
 
-    std::cout << "*** Done with dummy mainloop" << std::endl;
     return 0;
 }

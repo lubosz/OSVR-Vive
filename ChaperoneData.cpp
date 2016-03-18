@@ -1,0 +1,181 @@
+/** @file
+    @brief Implementation
+
+    @date 2016
+
+    @author
+    Sensics, Inc.
+    <http://sensics.com/osvr>
+*/
+
+// Copyright 2016 Sensics, Inc.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//        http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+// Internal Includes
+#include "ChaperoneData.h"
+
+// Library/third-party includes
+#include <json/reader.h>
+#include <json/value.h>
+
+// Standard includes
+#include <fstream>
+#include <iostream>
+#include <map>
+#include <sstream>
+
+namespace osvr {
+namespace vive {
+    static const auto PREFIX = "[ChaperoneData] ";
+    static const auto CHAPERONE_DATA_FILENAME = "chaperone_info.vrchap";
+#ifdef _WIN32
+    static const auto PATH_SEPARATOR = "\\";
+#else
+    static const auto PATH_SEPARATOR = "/";
+#endif
+
+    using UniverseDataMap =
+        std::map<std::uint64_t, ChaperoneData::UniverseData>;
+    struct ChaperoneData::Impl {
+        Json::Value chaperoneInfo;
+        UniverseDataMap universes;
+    };
+    ChaperoneData::ChaperoneData(std::string const &steamConfigDir)
+        : impl_(new Impl), configDir_(steamConfigDir) {
+        {
+            Json::Reader reader;
+            auto chapInfoFn =
+                configDir_ + PATH_SEPARATOR + CHAPERONE_DATA_FILENAME;
+            std::ifstream chapInfoFile;
+            /// Turn on exceptions for this stream.
+            std::ios_base::iostate origFlags = chapInfoFile.exceptions();
+            chapInfoFile.exceptions(origFlags | std::ios::failbit);
+            try {
+                chapInfoFile.open(configDir_);
+            } catch (std::ios_base::failure &e) {
+                std::ostringstream os;
+                os << "Could not open chaperone info file, expected at "
+                   << chapInfoFn;
+                os << " (Exception: " << e.what() << ")";
+                auto theErrno = errno;
+                os << " (Error code: " << theErrno << " - "
+                   << strerror(theErrno) << ")";
+                errorOut_(os.str());
+                return;
+            }
+
+            if (!chapInfoFile.good()) {
+                errorOut_("Could not open chaperone info file, expected at " +
+                          chapInfoFn);
+                return;
+            }
+
+            if (!reader.parse(chapInfoFile, impl_->chaperoneInfo)) {
+                errorOut_("Could not parse JSON in chaperone info file at " +
+                          chapInfoFn + ": " +
+                          reader.getFormattedErrorMessages());
+                return;
+            }
+
+            /// Basic sanity checks
+            if (impl_->chaperoneInfo["jsonid"] != "chaperone_info") {
+                errorOut_("Chaperone info file at " + chapInfoFn +
+                          " did not match expected format (no element "
+                          "\"jsonid\": \"chaperone_info\" in top level "
+                          "object)");
+                return;
+            }
+
+            if (impl_->chaperoneInfo["universes"].size() == 0) {
+                errorOut_("Chaperone info file at " + chapInfoFn +
+                          " did not contain any known chaperone universes - "
+                          "user must run Room Setup at least once");
+                return;
+            }
+        }
+
+        for (auto const &univ : impl_->chaperoneInfo["universes"]) {
+            auto univIdString = univ["universeID"].asString();
+            auto &standing = univ["standing"];
+            if (standing.isNull()) {
+                warn_("No standing calibration data for universe " +
+                      univIdString + ", so had to skip it.");
+                continue;
+            }
+
+            std::uint64_t id;
+            std::istringstream is(univIdString);
+            is >> id;
+            UniverseData data;
+            data.yaw = standing["yaw"].asDouble();
+            auto &xlate = standing["translation"];
+            for (std::size_t i = 0; i < 3; ++i) {
+                data.translation[i] = xlate[i].asDouble();
+            }
+            impl_->universes.insert(std::make_pair(id, data));
+        }
+    }
+
+    ChaperoneData::~ChaperoneData() {}
+
+    bool ChaperoneData::valid() const { return static_cast<bool>(impl_); }
+
+    bool ChaperoneData::knowUniverseId(std::uint64_t universe) const {
+        if (0 == universe) {
+            return false;
+        }
+        return (impl_->universes.find(universe) != end(impl_->universes));
+    }
+
+    ChaperoneData::UniverseData
+    ChaperoneData::getDataForUniverse(std::uint64_t universe) const {
+        return UniverseData();
+    }
+
+    std::size_t ChaperoneData::getNumberOfKnownUniverses() const {
+        return impl_->universes.size();
+    }
+
+    void ChaperoneData::errorOut_(std::string const &message) {
+        /// This reset may be redundant in some cases, but better to not miss
+        /// it, since it's also our error flag.
+        impl_.reset();
+
+        warn_("ERROR: " + message);
+    }
+
+    void ChaperoneData::warn_(std::string const &message) {
+
+        if (err_.empty()) {
+            /// First error
+            err_ = message;
+            return;
+        }
+
+        static const auto BEGIN_LIST = "[";
+        static const auto BEGIN_LIST_CH = BEGIN_LIST[0];
+        static const auto END_LIST = "]";
+        static const auto MIDDLE_LIST = "][";
+        if (BEGIN_LIST_CH == err_.front()) {
+            /// We've already started a list of errors, just tack one more on.
+            err_ += BEGIN_LIST + message + END_LIST;
+            return;
+        }
+
+        /// OK, so this is our exactly second error, wrap the first and second.
+        err_ = BEGIN_LIST + err_ + MIDDLE_LIST + message + END_LIST;
+    }
+
+} // namespace vive
+} // namespace osvr

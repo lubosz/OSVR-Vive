@@ -205,6 +205,12 @@ namespace vive {
             return deactivateOnShutdown_;
         }
 
+        /// Seriously, just avoid using this function and it will be OK.
+        std::vector<vr::ITrackedDeviceServerDriver *> const &
+        rawDeviceVectorAccess_NOT_RECOMMENDED_TODO_FIXME() const {
+            return devices_;
+        }
+
       private:
         bool deactivateOnShutdown_ = true;
         std::vector<vr::ITrackedDeviceServerDriver *> devices_;
