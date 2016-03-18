@@ -39,22 +39,57 @@
 
 namespace osvr {
 namespace vive {
-#if 0
-    template <typename Provider> struct DriverProviderCleanupDeleter {
-        static_assert(
-            InterfaceExpectedFromEntryPointTrait<Provider>::value,
-            "Deleter only valid for those 'provider' interface types expected "
-            "to be provided by the driver entry point.");
-
-        void operator()(Provider *ptr) const {
-            if (ptr) {
-                ptr->Cleanup();
-            }
-        }
-    };
-#endif
     template <typename InterfaceType>
     using ProviderPtr = std::shared_ptr<InterfaceType>;
+    using SharedDriverLoader = std::shared_ptr<DriverLoader>;
+    namespace detail {
+        /// Implementation of getProvider, with an optional hook where you can
+        /// do something else with the SharedDriverLoader before direct
+        /// access to it is lost forever.
+        template <typename InterfaceType, typename F>
+        inline ProviderPtr<InterfaceType> getProviderImpl(
+            std::unique_ptr<DriverLoader> &&loader, vr::IDriverLog *driverLog,
+            InterfaceHost<InterfaceType> *host,
+            std::string const &userDriverConfigDir, F &&driverLoaderFunctor) {
+            using return_type = ProviderPtr<InterfaceType>;
+
+            if (!loader) {
+                return return_type{};
+            }
+            /// Move into local pointer, so if something goes wrong, the driver
+            /// gets unloaded.
+            std::unique_ptr<DriverLoader> myLoader(std::move(loader));
+            auto rawPtr = myLoader->getInterfaceThrowing<InterfaceType>();
+            auto initResults =
+                rawPtr->Init(driverLog, host, userDriverConfigDir.c_str(),
+                             myLoader->getDriverRoot().c_str());
+            if (vr::VRInitError_None != initResults) {
+                /// Failed, reset the loader pointer to unload the driver.
+                std::cout << "Got error code " << initResults << std::endl;
+                myLoader.reset();
+                return return_type{};
+            }
+
+            /// OK, so this is the interface. Move the loader into a shared
+            /// pointer, make the loader responsible for cleanup of the
+            /// interface, and get the shared pointer of the interface pointer
+            /// returned.
+            SharedDriverLoader sharedLoader(std::move(myLoader));
+            sharedLoader->cleanupInterfaceOnDestruction(rawPtr);
+
+            /// Call the hook
+            (std::forward<F>(driverLoaderFunctor))(sharedLoader);
+
+            /// Create the return value: another shared pointer.
+            /// This is the so-called "aliasing" constructor - this pointer will
+            /// actually keep the DriverLoader alive and do nothing with the
+            /// lifetime of rawPtr (which is why the loader is responsible for
+            /// calling Cleanup, see above)
+            return_type ret(sharedLoader, rawPtr);
+
+            return ret;
+        }
+    } // namespace detail
 
     /// Gets one of the main interfaces provided by the driver entry point.
     /// Ownership of the driver loader is transferred (and maintained in the
@@ -65,39 +100,38 @@ namespace vive {
     getProvider(std::unique_ptr<DriverLoader> &&loader,
                 vr::IDriverLog *driverLog, InterfaceHost<InterfaceType> *host,
                 std::string const &userDriverConfigDir) {
-        using return_type = ProviderPtr<InterfaceType>;
         static_assert(
             InterfaceExpectedFromEntryPointTrait<InterfaceType>::value,
-            "Function only valid for those 'provider' interface types expected "
-            "to be provided by the driver entry point.");
+            "Function only valid for those 'provider' interface types "
+            "expected to be provided by the driver entry point.");
+        return detail::getProviderImpl<InterfaceType>(
+            std::move(loader), driverLog, host, userDriverConfigDir,
+            [](SharedDriverLoader const &) {});
+    }
 
-        if (!loader) {
-            return return_type{};
-        }
-        /// Move into local pointer, so if something goes wrong, the driver gets
-        /// unloaded.
-        std::unique_ptr<DriverLoader> myLoader(std::move(loader));
-        auto rawPtr = myLoader->getInterfaceThrowing<InterfaceType>();
-        auto initResults =
-            rawPtr->Init(driverLog, host, userDriverConfigDir.c_str(),
-                         myLoader->getDriverRoot().c_str());
-        if (vr::VRInitError_None != initResults) {
-            /// Failed, reset the loader pointer to unload the driver.
-            std::cout << "Got error code " << initResults << std::endl;
-            myLoader.reset();
-            return return_type{};
-        }
+    inline std::pair<ProviderPtr<vr::IServerTrackedDeviceProvider>,
+                     ProviderPtr<vr::IClientTrackedDeviceProvider>>
+    getServerProviderWithUninitializedClientProvider(
+        std::unique_ptr<DriverLoader> &&loader, vr::IDriverLog *driverLog,
+        InterfaceHost<vr::IServerTrackedDeviceProvider> *serverHost,
+        std::string const &userDriverConfigDir) {
 
-        /// OK, so this is the interface. Move the loader into a shared pointer,
-        /// make the loader responsible for cleanup of the interface, and get
-        /// the shared pointer of the interface pointer returned.
-        std::shared_ptr<DriverLoader> sharedLoader(std::move(myLoader));
-        sharedLoader->cleanupInterfaceOnDestruction(rawPtr);
-        /// This is the so-called "aliasing" constructor - this pointer will
-        /// actually keep the DriverLoader alive.
-        return_type ret(sharedLoader, rawPtr);
-
-        return ret;
+        ProviderPtr<vr::IClientTrackedDeviceProvider> clientPtr;
+        auto retrieveClientProvider = [&clientPtr](
+            SharedDriverLoader const &driverLoader) {
+            auto rawPtr =
+                driverLoader
+                    ->getInterfaceThrowing<vr::IClientTrackedDeviceProvider>();
+            /// Use the aliasing constructor to make sure that driverLoader
+            /// doesn't go away before clientPtr does, either.
+            clientPtr = ProviderPtr<vr::IClientTrackedDeviceProvider>(
+                driverLoader, rawPtr);
+        };
+        auto serverPtr =
+            detail::getProviderImpl<vr::IServerTrackedDeviceProvider>(
+                std::move(loader), driverLog, serverHost, userDriverConfigDir,
+                retrieveClientProvider);
+        return std::make_pair(std::move(serverPtr), std::move(clientPtr));
     }
 } // namespace vive
 } // namespace osvr
