@@ -244,7 +244,11 @@ namespace vive {
 
     ChaperoneData::UniverseData
     ChaperoneData::getDataForUniverse(std::uint64_t universe) const {
-        return UniverseData();
+        auto it = impl_->universes.find(universe);
+        if (it == end(impl_->universes)) {
+            return UniverseData();
+        }
+        return it->second;
     }
 
     std::size_t ChaperoneData::getNumberOfKnownUniverses() const {
