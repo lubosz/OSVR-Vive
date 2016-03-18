@@ -91,6 +91,8 @@ osvr_add_plugin(com_osvr_Vive
     com_osvr_Vive.cpp
     OSVRViveTracker.cpp
     OSVRViveTracker.h
+    QuickProcessingDeque.h
+    VerifyLocked.h
     "${CMAKE_CURRENT_BINARY_DIR}/com_osvr_Vive_json.h")
 
 target_link_libraries(com_osvr_Vive ViveLoaderLib)

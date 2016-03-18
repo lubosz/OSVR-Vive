@@ -100,6 +100,11 @@ namespace vive {
                           << PREFIX << "Device with s/n " << serialNum
                           << " activated, assigned ID " << ret.second
                           << std::endl;
+                NewDeviceReport out{std::string{serialNum}, ret.second};
+                {
+                    std::lock_guard<std::mutex> lock(m_mutex);
+                    m_newDevices.submitNew(std::move(out), lock);
+                }
                 return true;
             };
 
@@ -130,6 +135,7 @@ namespace vive {
 
         osvrDeviceTrackerConfigure(opts, &m_tracker);
         osvrDeviceAnalogConfigure(opts, &m_analog, NUM_ANALOGS);
+        osvrDeviceButtonConfigure(opts, &m_button, NUM_BUTTONS);
 
         /// Because the callbacks may not come from the same thread that
         /// calls RunFrame, we need to be careful to not send directly from
@@ -149,26 +155,33 @@ namespace vive {
         m_vive->serverDevProvider().RunFrame();
         {
             std::lock_guard<std::mutex> lock(m_mutex);
-            /// Copy a fixed number of tracking reports that have been
-            /// queued up.
-            auto numTrackers = m_trackingReports.size();
-            for (std::size_t i = 0; i < numTrackers; ++i) {
-                m_currentTrackingReports.push_back(m_trackingReports.front());
-                m_trackingReports.pop_front();
-            }
+            /// Copy a fixed number of reports that have been queued up.
+            m_trackingReports.grabItems(lock);
+            m_hmdButtonReports.grabItems(lock);
 
         } // unlock
         // Now that we're out of that mutex, we can go ahead and actually send
         // the reports.
-        for (auto &out : m_currentTrackingReports) {
+        for (auto &out : m_trackingReports.accessWorkItems()) {
             if (out.isUniverseChange) {
                 handleUniverseChange(out.newUniverse);
             } else {
                 convertAndSendTracker(out.timestamp, out.sensor, out.report);
             }
         }
-        // then clear this temporary buffer for next time.
-        m_currentTrackingReports.clear();
+        // then clear this temporary buffer for next time. (done automatically,
+        // but doing it manually here since there will usually be lots of
+        // tracking reports.
+        m_trackingReports.clearWorkItems();
+
+        // Deal with the "buttons" on the HMD individually
+        for (auto &out : m_hmdButtonReports.accessWorkItems()) {
+            osvrDeviceButtonSetValueTimestamped(
+                m_dev, m_button,
+                out.buttonState ? OSVR_BUTTON_PRESSED : OSVR_BUTTON_NOT_PRESSED,
+                out.sensor, &out.timestamp);
+        }
+
         return OSVR_RETURN_SUCCESS;
     }
 
@@ -219,7 +232,7 @@ namespace vive {
         out.report = newPose;
         {
             std::lock_guard<std::mutex> lock(m_mutex);
-            m_trackingReports.push_back(std::move(out));
+            m_trackingReports.submitNew(std::move(out), lock);
         }
     }
 
@@ -229,7 +242,19 @@ namespace vive {
         out.newUniverse = newUniverse;
         {
             std::lock_guard<std::mutex> lock(m_mutex);
-            m_trackingReports.push_back(std::move(out));
+            m_trackingReports.submitNew(std::move(out), lock);
+        }
+    }
+
+    void ViveDriverHost::submitHMDButton(OSVR_ChannelCount sensor, bool value) {
+        HMDButtonReport out;
+        out.buttonState = value;
+        out.sensor = sensor;
+        out.timestamp = osvr::util::time::getNow();
+
+        {
+            std::lock_guard<std::mutex> lock(m_mutex);
+            m_hmdButtonReports.submitNew(std::move(out), lock);
         }
     }
 
