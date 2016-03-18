@@ -44,6 +44,11 @@
 
 namespace osvr {
 namespace vive {
+    /// The do-nothing driver logger.
+    class NullDriverLog : public vr::IDriverLog {
+      public:
+        void Log(const char *) override {}
+    };
 
     class DriverWrapper {
       public:
@@ -54,15 +59,7 @@ namespace vive {
         explicit DriverWrapper(vr::ServerDriverHost *serverDriverHost)
             : serverDriverHost_(serverDriverHost),
               driverLocation_(findDriver()) {
-            if (!foundDriver()) {
-                return;
-            }
-            loader_ = DriverLoader::make(driverLocation_.driverRoot,
-                                         driverLocation_.driverFile);
-            if (!haveDriverLoaded()) {
-                return;
-            }
-            configDirs_ = findConfigDirs(driverLocation_);
+            commonInit_();
         }
 
         /// Default constructor: we make and own our own ServerDriverHost.
@@ -70,15 +67,7 @@ namespace vive {
             : owningServerDriverHost_(new vr::ServerDriverHost),
               serverDriverHost_(owningServerDriverHost_.get()),
               driverLocation_(findDriver()) {
-            if (!foundDriver()) {
-                return;
-            }
-            loader_ = DriverLoader::make(driverLocation_.driverRoot,
-                                         driverLocation_.driverFile);
-            if (!haveDriverLoaded()) {
-                return;
-            }
-            configDirs_ = findConfigDirs(driverLocation_);
+            commonInit_();
         }
 
         ~DriverWrapper() { stop(); }
@@ -150,8 +139,12 @@ namespace vive {
         }
 
         /// This must be called before accessing the server device provider.
+        ///
+        /// @param quiet If true (default), a "null" driver logger will be
+        /// passed that discards all log data.
+        ///
         /// @return false if it could not be started
-        bool startServerDeviceProvider() {
+        bool startServerDeviceProvider(bool quiet = true) {
             if (!(foundDriver() && foundConfigDirs() && haveDriverLoaded() &&
                   haveServerDeviceHost())) {
                 return false;
@@ -159,9 +152,14 @@ namespace vive {
             if (serverDeviceProvider_) {
                 return true;
             }
+            vr::IDriverLog *logger = nullptr;
+            if (quiet) {
+                logger = &nullDriverLog_;
+            }
+
             serverDeviceProvider_ =
                 getProvider<vr::IServerTrackedDeviceProvider>(
-                    std::move(loader_), nullptr, serverDriverHost_,
+                    std::move(loader_), logger, serverDriverHost_,
                     configDirs_.driverConfigDir);
             return static_cast<bool>(serverDeviceProvider_);
         }
@@ -207,6 +205,18 @@ namespace vive {
         }
 
       private:
+        void commonInit_() {
+
+            if (!foundDriver()) {
+                return;
+            }
+            loader_ = DriverLoader::make(driverLocation_.driverRoot,
+                                         driverLocation_.driverFile);
+            if (!haveDriverLoaded()) {
+                return;
+            }
+            configDirs_ = findConfigDirs(driverLocation_);
+        }
         /// This pointer manages lifetime if we created our own host but isn't
         /// accessed beyond that.
         std::unique_ptr<vr::ServerDriverHost> owningServerDriverHost_;
@@ -221,6 +231,7 @@ namespace vive {
         ProviderPtr<vr::IServerTrackedDeviceProvider> serverDeviceProvider_;
 
         DeviceHolder devices_;
+        NullDriverLog nullDriverLog_;
     };
 } // namespace vive
 } // namespace osvr
