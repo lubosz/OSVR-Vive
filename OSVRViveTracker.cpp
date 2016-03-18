@@ -25,7 +25,7 @@
 // Internal Includes
 #include "OSVRViveTracker.h"
 #include "DriverWrapper.h"
-#include "InterfaceTraits.h"
+#include "GetComponent.h"
 #include "PropertyHelper.h"
 
 // Generated JSON header file

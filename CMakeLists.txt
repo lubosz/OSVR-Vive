@@ -62,9 +62,10 @@ add_library(ViveLoaderLib STATIC
     DriverLoader.cpp
     DriverLoader.h
     DriverWrapper.h
-    GetProvider.h
     FindDriver.cpp
     FindDriver.h
+    GetComponent.h
+    GetProvider.h
     InterfaceTraits.h
     SearchPathExtender.h
     ServerDriverHost.cpp

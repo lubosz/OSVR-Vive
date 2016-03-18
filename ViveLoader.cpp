@@ -24,6 +24,7 @@
 
 // Internal Includes
 #include "DriverWrapper.h"
+#include "GetComponent.h"
 
 // Library/third-party includes
 #include <openvr_driver.h>

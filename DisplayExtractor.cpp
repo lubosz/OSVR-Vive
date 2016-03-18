@@ -27,6 +27,7 @@
 // Internal Includes
 #include "DisplayDescriptor.h"
 #include "DriverWrapper.h"
+#include "GetComponent.h"
 #include "PropertyHelper.h"
 #include "RGBPoints.h"
 
@@ -121,7 +122,7 @@ bool updateFOV(DisplayDescriptor &descriptor,
 }
 
 inline bool approxEqual(float a, float b, float maxDiff,
-    float maxRelDiff = FLT_EPSILON) {
+                        float maxRelDiff = FLT_EPSILON) {
     /// Inspired by Bruce Dawson's AlmostEqualRelativeAndAbs
     /// https://randomascii.wordpress.com/2012/02/25/comparing-floating-point-numbers-2012-edition/
     auto diff = std::abs(a - b);
@@ -137,7 +138,7 @@ static size_t g_approxNe = 0;
 
 inline void addMeshPoint(vr::IVRDisplayComponent *display, RGBPoints &mesh,
                          const float u, const float v) {
-    static const float maxdiff = 0.001;
+    static const float maxdiff = 0.001f;
     for (std::size_t eye = 0; eye < 2; ++eye) {
         auto steamEye = eye == 0 ? vr::Eye_Left : vr::Eye_Right;
         auto meshEye = eye == 0 ? RGBPoints::Eye::Left : RGBPoints::Eye::Right;

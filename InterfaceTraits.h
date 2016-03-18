@@ -111,24 +111,6 @@ namespace vive {
     struct InterfaceExpectedFromGetComponent<vr::IVRCameraComponent>
         : std::true_type {};
 
-    /// Helper function for easy typesafe  "query interface"-type accessing of
-    /// tracked server driver components
-    template <typename InterfaceType>
-    inline InterfaceType *getComponent(vr::ITrackedDeviceServerDriver *driver) {
-        static_assert(
-            InterfaceExpectedFromGetComponent<InterfaceType>::value,
-            "Can only call getComponent with interface types expected to be "
-            "used with getComponent!");
-        if (!driver) {
-            return nullptr;
-        }
-        void *initialRet =
-            driver->GetComponent(InterfaceNameTrait<InterfaceType>::get());
-        if (!initialRet) {
-            return nullptr;
-        }
-        return static_cast<InterfaceType *>(initialRet);
-    }
 } // namespace vive
 } // namespace osvr
 
