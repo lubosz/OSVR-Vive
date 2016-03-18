@@ -1,3 +1,7 @@
 {
-  "comment": "No explicit configuration needed - plugin auto-loads, auto-detects, and auto-configures."
+
+    /* This one can use an existing build of render manager, but the display descriptor needs to be edited with an absolute path to the mesh file put in it*/
+    "display": "displays/ViveDisplay.json",
+    
+    "renderManagerConfig": "sample-configs/renderManager.direct.landscape.json"
 }
