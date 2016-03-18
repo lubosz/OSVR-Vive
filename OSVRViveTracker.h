@@ -50,7 +50,8 @@ namespace osvr {
 namespace vive {
     struct TrackingReport {
         OSVR_TimeValue timestamp;
-        OSVR_PoseReport report;
+        OSVR_ChannelCount sensor;
+        vr::DriverPose_t report;
     };
 
     using TrackingDeque = std::deque<TrackingReport>;
@@ -93,6 +94,11 @@ namespace vive {
         /// Does the real work of adding a new device.
         std::pair<bool, std::uint32_t>
         activateDeviceImpl(vr::ITrackedDeviceServerDriver *dev);
+
+        /// Called from main thread only!
+        void convertAndSendTracker(OSVR_TimeValue const &tv,
+                                   OSVR_ChannelCount sensor,
+                                   const DriverPose_t &newPose);
 
         osvr::pluginkit::DeviceToken m_dev;
         OSVR_TrackerDeviceInterface m_tracker;

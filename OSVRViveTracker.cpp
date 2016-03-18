@@ -153,9 +153,7 @@ namespace vive {
         // Now that we're out of that mutex, we can go ahead and actually send
         // the reports.
         for (auto &out : m_currentTrackingReports) {
-            osvrDeviceTrackerSendPoseTimestamped(
-                m_dev, m_tracker, &out.report.pose, out.report.sensor,
-                &out.timestamp);
+            convertAndSendTracker(out.timestamp, out.sensor, out.report);
         }
         // then clear this temporary buffer for next time.
         m_currentTrackingReports.clear();
@@ -200,19 +198,14 @@ namespace vive {
         return devs.addAndActivateDevice(dev);
     }
 
-    void ViveDriverHost::TrackedDevicePoseUpdated(uint32_t unWhichDevice,
-                                                  const DriverPose_t &newPose) {
-#if 0
-        std::cout << PREFIX << "TrackedDevicePoseUpdated(" << unWhichDevice
-            << ", newPose)" << std::endl;
-#endif
+    void ViveDriverHost::convertAndSendTracker(OSVR_TimeValue const &tv,
+                                               OSVR_ChannelCount sensor,
+                                               const DriverPose_t &newPose) {
+
         if (!newPose.poseIsValid) {
+            /// @todo better handle non-valid states?
             return;
         }
-        TrackingReport out;
-        out.timestamp = osvr::util::time::getNow();
-        out.report.sensor = unWhichDevice;
-        auto &pose = out.report.pose;
         auto quatFromSteamVR = [](vr::HmdQuaternion_t const &q) {
             return Eigen::Quaterniond(q.w, q.x, q.y, q.z);
         };
@@ -247,10 +240,12 @@ namespace vive {
 #if 0
         ei::map(pose.translation) =
             (worldFromDriverTranslation * worldFromDriverRotation *
-             Eigen::Translation3d(Eigen::Vector3d::Map(newPose.vecPosition)) *
-             driverFromHeadTranslation * worldFromDriverRotation)
-                .translation();
+                Eigen::Translation3d(Eigen::Vector3d::Map(newPose.vecPosition)) *
+                driverFromHeadTranslation * worldFromDriverRotation)
+            .translation();
 #endif
+
+        OSVR_Pose3 pose;
         ei::map(pose.translation) =
             (worldFromDriver *
              Eigen::Translation3d(Eigen::Vector3d::Map(newPose.vecPosition)) *
@@ -258,6 +253,21 @@ namespace vive {
                 .translation();
         ei::map(pose.rotation) =
             worldFromDriverRotation * qRotation * driverFromHeadRotation;
+
+        osvrDeviceTrackerSendPoseTimestamped(m_dev, m_tracker, &pose, sensor,
+                                             &tv);
+    }
+
+    void ViveDriverHost::TrackedDevicePoseUpdated(uint32_t unWhichDevice,
+                                                  const DriverPose_t &newPose) {
+#if 0
+        std::cout << PREFIX << "TrackedDevicePoseUpdated(" << unWhichDevice
+            << ", newPose)" << std::endl;
+#endif
+        TrackingReport out;
+        out.timestamp = osvr::util::time::getNow();
+        out.sensor = unWhichDevice;
+        out.report = newPose;
         {
             std::lock_guard<std::mutex> lock(m_mutex);
             m_trackingReports.push_back(std::move(out));
