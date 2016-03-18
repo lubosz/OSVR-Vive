@@ -29,11 +29,102 @@
 #include <json/reader.h>
 #include <json/value.h>
 
+#include <osvr/Util/Finally.h>
+
 // Standard includes
 #include <fstream>
+#include <functional>
 #include <iostream>
 #include <map>
 #include <sstream>
+
+#ifdef _WIN32
+#define WIN32_LEAN_AND_MEAN
+#define NO_MINMAX
+#include <windows.h>
+
+static inline std::string formatLastErrorAsString() {
+    char *lpMsgBuf = nullptr;
+    FormatMessageA(FORMAT_MESSAGE_ALLOCATE_BUFFER | FORMAT_MESSAGE_FROM_SYSTEM,
+                   nullptr, GetLastError(),
+                   MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT),
+                   // Default language
+                   reinterpret_cast<LPSTR>(&lpMsgBuf), 0, nullptr);
+    /// Free that buffer when we're out of scope.
+    auto cleanupBuf = osvr::util::finally([&] { LocalFree(lpMsgBuf); });
+    auto errorMessage = std::string(lpMsgBuf);
+    return errorMessage;
+}
+static inline std::string
+getFile(std::string const &fn,
+        std::function<void(std::string const &)> const &errorReport) {
+    /// Had trouble with "permission denied" errors using standard C++ iostreams
+    /// on the chaperone data, so had to go back down to Win32 API.
+    HANDLE f = CreateFileA(fn.c_str(), GENERIC_READ,
+                           FILE_SHARE_READ | FILE_SHARE_WRITE, nullptr,
+                           OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, nullptr);
+    if (INVALID_HANDLE_VALUE == f) {
+        errorReport("Could not open file: " + formatLastErrorAsString());
+        return std::string{};
+    }
+    auto closer = osvr::util::finally([&f] { CloseHandle(f); });
+
+    std::ostringstream os;
+    static const auto BUFSIZE = 1024;
+    std::array<char, BUFSIZE + 1> buf;
+    /// Null terminate for ease of use.
+    buf.back() = '\0';
+    bool keepReading = true;
+    while (1) {
+        DWORD bytesRead;
+        auto ret = ReadFile(f, buf.data(), buf.size() - 1, &bytesRead, nullptr);
+        if (ret) {
+            if (bytesRead == 0) {
+                // end of file
+                break;
+            } else {
+                // Null terminate this block and slide it in.
+                std::cout << "read " << bytesRead << " bytes this time "
+                          << std::endl;
+                buf[bytesRead] = '\0';
+                os << buf.data();
+            }
+        } else {
+
+            errorReport("Error after reading " +
+                        std::to_string(os.str().size()) + " bytes: " +
+                        formatLastErrorAsString());
+            return std::string{};
+        }
+    }
+    return os.str();
+}
+#else
+
+std::string
+getFile(std::string const &fn,
+        std::function<void(std::string const &)> const &errorReport) {
+    std::ifstream s(fn, std::ios::in | std::ios::binary);
+    if (!s) {
+        std::ostringstream os;
+        os << "Could not open file ";
+
+        /// Sadly errno is far more useful in its error messages than
+        /// failbit-triggered exceptions, etc.
+        auto theErrno = errno;
+        os << " (Error code: " << theErrno << " - " << strerror(theErrno)
+           << ")";
+        errorReport(os.str());
+        return std::string{};
+    }
+    std::ostringstream os;
+    std::string temp;
+    while (std::getline(os, temp)) {
+        os << temp;
+    }
+    return os.str();
+}
+#endif
 
 namespace osvr {
 namespace vive {
@@ -51,23 +142,23 @@ namespace vive {
         Json::Value chaperoneInfo;
         UniverseDataMap universes;
     };
+
     ChaperoneData::ChaperoneData(std::string const &steamConfigDir)
         : impl_(new Impl), configDir_(steamConfigDir) {
         {
             Json::Reader reader;
             auto chapInfoFn =
                 configDir_ + PATH_SEPARATOR + CHAPERONE_DATA_FILENAME;
-            std::ifstream chapInfoFile;
-            /// Turn on exceptions for this stream.
-            std::ios_base::iostate origFlags = chapInfoFile.exceptions();
-            chapInfoFile.exceptions(origFlags | std::ios::failbit);
-            try {
-                chapInfoFile.open(configDir_);
-            } catch (std::ios_base::failure &e) {
+#if 0
+            std::ifstream chapInfoFile(configDir_,
+                                       std::ios::in | std::ios::binary);
+            if (!chapInfoFile) {
                 std::ostringstream os;
                 os << "Could not open chaperone info file, expected at "
                    << chapInfoFn;
-                os << " (Exception: " << e.what() << ")";
+
+                /// Sadly errno is far more useful in its error messages than
+                /// failbit-triggered exceptions, etc.
                 auto theErrno = errno;
                 os << " (Error code: " << theErrno << " - "
                    << strerror(theErrno) << ")";
@@ -80,8 +171,21 @@ namespace vive {
                           chapInfoFn);
                 return;
             }
+#endif
+            std::string fileData =
+                getFile(chapInfoFn, [&](std::string const &message) {
+                    std::ostringstream os;
+                    os << "Could not open chaperone info file, expected at "
+                       << chapInfoFn;
+                    os << " - details [" << message << "]";
+                    errorOut_(os.str());
 
-            if (!reader.parse(chapInfoFile, impl_->chaperoneInfo)) {
+                });
+            if (!valid()) {
+                /// this means our fail handler got called.
+                return;
+            }
+            if (!reader.parse(fileData, impl_->chaperoneInfo)) {
                 errorOut_("Could not parse JSON in chaperone info file at " +
                           chapInfoFn + ": " +
                           reader.getFormattedErrorMessages());
