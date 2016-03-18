@@ -139,6 +139,8 @@ namespace vive {
 
         std::uint64_t m_universeId = 0;
         Eigen::Isometry3d m_universeXform;
+        Eigen::Quaterniond m_universeRotation;
+
         /// @}
     };
     using DriverHostPtr = std::unique_ptr<ViveDriverHost>;

@@ -52,7 +52,8 @@ namespace vive {
     static const auto PREFIX = "[OSVR-Vive] ";
 
     ViveDriverHost::ViveDriverHost()
-        : m_universeXform(Eigen::Isometry3d::Identity()) {}
+        : m_universeXform(Eigen::Isometry3d::Identity()),
+          m_universeRotation(Eigen::Quaterniond::Identity()) {}
 
     bool ViveDriverHost::start(OSVR_PluginRegContext ctx,
                                osvr::vive::DriverWrapper &&inVive) {
@@ -281,12 +282,12 @@ namespace vive {
 
         OSVR_Pose3 pose;
         ei::map(pose.translation) =
-            (worldFromDriver *
+            (m_universeXform * worldFromDriver *
              Eigen::Translation3d(Eigen::Vector3d::Map(newPose.vecPosition)) *
              driverFromHeadTranslation)
                 .translation();
-        ei::map(pose.rotation) =
-            worldFromDriverRotation * qRotation * driverFromHeadRotation;
+        ei::map(pose.rotation) = m_universeRotation * worldFromDriverRotation *
+                                 qRotation * driverFromHeadRotation;
 
         osvrDeviceTrackerSendPoseTimestamped(m_dev, m_tracker, &pose, sensor,
                                              &tv);
@@ -299,8 +300,29 @@ namespace vive {
         }
         std::cout << PREFIX << "Change of universe ID from " << m_universeId
                   << " to " << newUniverse << std::endl;
+        m_universeId = newUniverse;
+        auto known = m_vive->chaperone().knowUniverseId(m_universeId);
+        if (!known) {
+            std::cout << PREFIX << "No usable information on this universe "
+                                   "could be found - there may not be a "
+                                   "standing calibration for it in your room "
+                                   "setup. You may wish to complete that then "
+                                   "start the OSVR server again. Will operate "
+                                   "without universe transforms."
+                      << std::endl;
+            m_universeXform.setIdentity();
+            m_universeRotation.setIdentity();
+        }
 
-        /// @todo use the chaperone info now.
+        /// Fetch the data
+        auto univData = m_vive->chaperone().getDataForUniverse(m_universeId);
+        using namespace Eigen;
+        /// Populate the transforms.
+        m_universeXform =
+            Translation3d(Vector3d::Map(univData.translation.data())) *
+            AngleAxisd(univData.yaw, Vector3d::UnitY());
+        m_universeRotation =
+            Quaterniond(AngleAxisd(univData.yaw, Vector3d::UnitY()));
     }
 
     void ViveDriverHost::TrackedDevicePoseUpdated(uint32_t unWhichDevice,
