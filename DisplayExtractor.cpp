@@ -26,6 +26,7 @@
 
 // Internal Includes
 #include "DisplayDescriptor.h"
+#include "RGBPoints.h"
 #include "DriverWrapper.h"
 #include "PropertyHelper.h"
 

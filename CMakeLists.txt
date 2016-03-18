@@ -47,6 +47,15 @@ else()
     target_compile_definitions(filesystem_lib INTERFACE BOOST_FILESYSTEM_VERSION=3 OSVR_USING_BOOST_FILESYSTEM)
 endif()
 
+set(DISPLAY_SOURCES
+    DisplayDescriptor.cpp
+    DisplayDescriptor.h
+    MonoPoints.cpp
+    MonoPoints.h
+    PointHelpers.h
+    RGBPoints.cpp
+    RGBPoints.h)
+
 # Put the shared files into a static library, so we don't recompile them multiple times.
 add_library(ViveLoaderLib STATIC
     DeviceHolder.h
@@ -99,9 +108,8 @@ osvr_convert_json(viveDisplayInput
     input/HTC_Vive_PRE.json
     "${CMAKE_CURRENT_BINARY_DIR}/viveDisplayInput.h")
 add_executable(DisplayExtractor
-    DisplayDescriptor.cpp
-    DisplayDescriptor.h
     DisplayExtractor.cpp
+    ${DISPLAY_SOURCES}
     "${CMAKE_CURRENT_BINARY_DIR}/viveDisplayInput.h")
 target_link_libraries(DisplayExtractor PRIVATE ViveLoaderLib JsonCpp::JsonCpp)
 copy_imported_targets(DisplayExtractor osvr::osvrUtil)
