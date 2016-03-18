@@ -34,15 +34,14 @@
 // Standard includes
 #include <array>
 #include <memory>
-#include <utility>
 
 namespace osvr {
 namespace vive {
 
-    class RGBMesh {
+    class RGBPoints {
       public:
-        RGBMesh();
-        ~RGBMesh();
+        RGBPoints();
+        ~RGBPoints();
 
         enum { Red = 0, Green = 1, Blue = 2 };
 

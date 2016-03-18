@@ -37,7 +37,7 @@ namespace osvr {
 namespace vive {
     static const std::array<std::string, 3> COLOR_NAMES = {
         "red_point_samples", "green_point_samples", "blue_point_samples"};
-    struct RGBMesh::Impl {
+    struct RGBPoints::Impl {
         Impl()
             : root(Json::objectValue),
               distortion_(&(root["display"]["hmd"]["distortion"] =
@@ -88,17 +88,17 @@ namespace vive {
         std::array<Json::Value *, 3> colors_;
     };
 
-    RGBMesh::RGBMesh() : impl_(new Impl) {}
-    RGBMesh::~RGBMesh() {}
-    void RGBMesh::addSample(Eye eye, Point2 const &inputUV, Point2 const &outR,
+    RGBPoints::RGBPoints() : impl_(new Impl) {}
+    RGBPoints::~RGBPoints() {}
+    void RGBPoints::addSample(Eye eye, Point2 const &inputUV, Point2 const &outR,
                             Point2 const &outG, Point2 const &outB) {
         impl_->addSample(eye, inputUV, outR, outG, outB);
     }
-    std::string RGBMesh::getSeparateFile() const {
+    std::string RGBPoints::getSeparateFile() const {
         Json::FastWriter writer;
         return writer.write(impl_->root);
     }
-    std::string RGBMesh::getSeparateFileStyled() const {
+    std::string RGBPoints::getSeparateFileStyled() const {
         return impl_->root.toStyledString();
     }
 } // namespace vive

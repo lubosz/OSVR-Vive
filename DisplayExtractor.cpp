@@ -120,12 +120,12 @@ bool updateFOV(DisplayDescriptor &descriptor,
     return false;
 }
 
-inline void addMeshPoint(vr::IVRDisplayComponent *display, RGBMesh &mesh,
+inline void addMeshPoint(vr::IVRDisplayComponent *display, RGBPoints &mesh,
                          const float u, const float v) {
     for (std::size_t eye = 0; eye < 2; ++eye) {
         auto ret = display->ComputeDistortion(
             eye == 0 ? vr::Eye_Left : vr::Eye_Right, u, v);
-        mesh.addSample(eye == 0 ? RGBMesh::Eye::Left : RGBMesh::Eye::Right,
+        mesh.addSample(eye == 0 ? RGBPoints::Eye::Left : RGBPoints::Eye::Right,
                        {{u, v}}, {{ret.rfRed[0], ret.rfRed[1]}},
                        {{ret.rfGreen[0], ret.rfGreen[1]}},
                        {{ret.rfBlue[0], ret.rfBlue[1]}});
@@ -134,7 +134,7 @@ inline void addMeshPoint(vr::IVRDisplayComponent *display, RGBMesh &mesh,
 
 std::string generateMeshFileContents(vr::IVRDisplayComponent *display,
                                      const std::size_t steps = 3) {
-    RGBMesh mesh;
+    RGBPoints mesh;
     const auto realSteps = steps - 1;
     const float stepSize = 1.f / static_cast<float>(steps);
     for (std::size_t uInt = 0; uInt < realSteps; ++uInt) {
