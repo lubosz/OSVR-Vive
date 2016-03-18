@@ -26,9 +26,9 @@
 
 // Internal Includes
 #include "DisplayDescriptor.h"
-#include "RGBPoints.h"
 #include "DriverWrapper.h"
 #include "PropertyHelper.h"
+#include "RGBPoints.h"
 
 #include "viveDisplayInput.h"
 
@@ -120,13 +120,39 @@ bool updateFOV(DisplayDescriptor &descriptor,
     return false;
 }
 
+inline bool approxEqual(float a, float b, float maxDiff,
+    float maxRelDiff = FLT_EPSILON) {
+    /// Inspired by Bruce Dawson's AlmostEqualRelativeAndAbs
+    /// https://randomascii.wordpress.com/2012/02/25/comparing-floating-point-numbers-2012-edition/
+    auto diff = std::abs(a - b);
+    if (diff <= maxDiff) {
+        return true;
+    }
+    auto larger = std::max(std::abs(a), std::abs(b));
+    return diff <= larger * maxRelDiff;
+}
+
+static size_t g_approxEqual = 0;
+static size_t g_approxNe = 0;
+
 inline void addMeshPoint(vr::IVRDisplayComponent *display, RGBPoints &mesh,
                          const float u, const float v) {
+    static const float maxdiff = 0.001;
     for (std::size_t eye = 0; eye < 2; ++eye) {
-        auto ret = display->ComputeDistortion(
-            eye == 0 ? vr::Eye_Left : vr::Eye_Right, u, v);
-        mesh.addSample(eye == 0 ? RGBPoints::Eye::Left : RGBPoints::Eye::Right,
-                       {{u, v}}, {{ret.rfRed[0], ret.rfRed[1]}},
+        auto steamEye = eye == 0 ? vr::Eye_Left : vr::Eye_Right;
+        auto meshEye = eye == 0 ? RGBPoints::Eye::Left : RGBPoints::Eye::Right;
+
+        auto ret = display->ComputeDistortion(steamEye, u, v);
+
+        if (approxEqual(ret.rfRed[0], ret.rfGreen[0], maxdiff) &&
+            approxEqual(ret.rfRed[0], ret.rfBlue[0], maxdiff) &&
+            approxEqual(ret.rfRed[1], ret.rfGreen[1], maxdiff) &&
+            approxEqual(ret.rfRed[1], ret.rfBlue[1], maxdiff)) {
+            g_approxEqual++;
+        } else {
+            g_approxNe++;
+        }
+        mesh.addSample(meshEye, {{u, v}}, {{ret.rfRed[0], ret.rfRed[1]}},
                        {{ret.rfGreen[0], ret.rfGreen[1]}},
                        {{ret.rfBlue[0], ret.rfBlue[1]}});
     }
@@ -148,8 +174,14 @@ std::string generateMeshFileContents(vr::IVRDisplayComponent *display,
     }
     // and get (1, 1) as well.
     addMeshPoint(display, mesh, 1, 1);
-
+#if 0
     std::cout << PREFIX << "MESH: " << mesh.getSeparateFileStyled()
+              << std::endl;
+#endif
+
+    std::cout << PREFIX << "MESH COLOR MATCHING: " << g_approxEqual
+              << " approx equal, " << g_approxNe << " not ("
+              << (g_approxEqual / (g_approxEqual + g_approxNe) * 100) << "%)"
               << std::endl;
     return mesh.getSeparateFile();
 }
