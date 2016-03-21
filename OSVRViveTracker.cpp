@@ -36,20 +36,45 @@
 #include <osvr/Util/EigenInterop.h>
 
 // Standard includes
-// - none
+#include <array>
 
 namespace osvr {
 namespace vive {
 
     namespace ei = osvr::util::eigen_interop;
 
-    static const auto NUM_ANALOGS = 1;
-    static const auto IPD_ANALOG = 0;
-
+    /// sensor numbers in SteamVR and for tracking
     static const auto HMD_SENSOR = 0;
     static const auto CONTROLLER_SENSORS = {1, 2};
+    static const auto MAX_CONTROLLER_ID = 2;
+
+    static const auto NUM_ANALOGS = 7;
+    static const auto NUM_BUTTONS = 14;
+
+    /// Analog sensor for the IPD
+    static const auto IPD_ANALOG = 0;
+    static const auto PROX_SENSOR_BUTTON_OFFSET = 1;
 
     static const auto PREFIX = "[OSVR-Vive] ";
+
+    /// For the HMD and two controllers
+    static const std::array<uint32_t, 3> FIRST_BUTTON_ID = {0, 1, 8};
+    static const std::array<uint32_t, 3> FIRST_ANALOG_ID = {0, 1, 4};
+
+    /// Offsets from the first button ID for a controller that a button is
+    /// reported.
+    static const auto SYSTEM_BUTTON_OFFSET = 0;
+    static const auto MENU_BUTTON_OFFSET = 1;
+    static const auto GRIP_BUTTON_OFFSET = 2;
+    static const auto TRACKPAD_TOUCH_BUTTON_OFFSET = 3;
+    static const auto TRACKPAD_CLICK_BUTTON_OFFSET = 4;
+    static const auto TRIGGER_BUTTON_OFFSET = 4;
+
+    /// Offsets from the first button ID for a controller that an analog is
+    /// reported.
+    static const auto TRACKPAD_X_ANALOG_OFFSET = 0;
+    static const auto TRACKPAD_Y_ANALOG_OFFSET = 1;
+    static const auto TRIGGER_ANALOG_OFFSET = 3;
 
     ViveDriverHost::ViveDriverHost()
         : m_universeXform(Eigen::Isometry3d::Identity()),
@@ -77,36 +102,31 @@ namespace vive {
         /// Power the system up.
         m_vive->serverDevProvider().LeaveStandby();
 
-        auto handleNewDevice =
-            [&](const char *serialNum) {
-                auto dev = m_vive->serverDevProvider().FindTrackedDeviceDriver(
-                    serialNum, vr::ITrackedDeviceServerDriver_Version);
-                if (!dev) {
-                    std::cout
-                        << PREFIX
-                        << "Couldn't find the corresponding device driver for "
-                        << serialNum << std::endl;
-                    return false;
-                }
-                auto ret = activateDevice(dev);
-                if (!ret.first) {
-                    std::cout << PREFIX << "Device with serial number "
-                              << serialNum
-                              << " couldn't be added to the devices vector."
-                              << std::endl;
-                    return false;
-                }
-                std::cout << "\n"
-                          << PREFIX << "Device with s/n " << serialNum
-                          << " activated, assigned ID " << ret.second
+        auto handleNewDevice = [&](const char *serialNum) {
+            auto dev = m_vive->serverDevProvider().FindTrackedDeviceDriver(
+                serialNum, vr::ITrackedDeviceServerDriver_Version);
+            if (!dev) {
+                /// The only devices we can't look up by serial number seem
+                /// to be the lighthouse base stations.
+                std::cout << PREFIX << "Tracked object " << serialNum
+                          << " presumably a Lighthouse base station"
                           << std::endl;
-                NewDeviceReport out{std::string{serialNum}, ret.second};
-                {
-                    std::lock_guard<std::mutex> lock(m_mutex);
-                    m_newDevices.submitNew(std::move(out), lock);
-                }
-                return true;
-            };
+                return false;
+            }
+            auto ret = activateDevice(dev);
+            if (!ret.first) {
+                std::cout << PREFIX << "Device with serial number " << serialNum
+                          << " couldn't be added to the devices vector."
+                          << std::endl;
+                return false;
+            }
+            NewDeviceReport out{std::string{serialNum}, ret.second};
+            {
+                std::lock_guard<std::mutex> lock(m_mutex);
+                m_newDevices.submitNew(std::move(out), lock);
+            }
+            return true;
+        };
 
         m_vive->driverHost().onTrackedDeviceAdded = handleNewDevice;
 
@@ -122,10 +142,6 @@ namespace vive {
                 auto dev = m_vive->serverDevProvider().GetTrackedDeviceDriver(
                     i, vr::ITrackedDeviceServerDriver_Version);
                 activateDevice(dev);
-
-#if 0
-                addDeviceType(dev);
-#endif
             }
         }
 
@@ -157,7 +173,7 @@ namespace vive {
             std::lock_guard<std::mutex> lock(m_mutex);
             /// Copy a fixed number of reports that have been queued up.
             m_trackingReports.grabItems(lock);
-            m_hmdButtonReports.grabItems(lock);
+            m_buttonReports.grabItems(lock);
 
         } // unlock
         // Now that we're out of that mutex, we can go ahead and actually send
@@ -174,8 +190,8 @@ namespace vive {
         // tracking reports.
         m_trackingReports.clearWorkItems();
 
-        // Deal with the "buttons" on the HMD individually
-        for (auto &out : m_hmdButtonReports.accessWorkItems()) {
+        // Deal with the button reports.
+        for (auto &out : m_buttonReports.accessWorkItems()) {
             osvrDeviceButtonSetValueTimestamped(
                 m_dev, m_button,
                 out.buttonState ? OSVR_BUTTON_PRESSED : OSVR_BUTTON_NOT_PRESSED,
@@ -246,15 +262,16 @@ namespace vive {
         }
     }
 
-    void ViveDriverHost::submitHMDButton(OSVR_ChannelCount sensor, bool value) {
-        HMDButtonReport out;
-        out.buttonState = value;
-        out.sensor = sensor;
+    void ViveDriverHost::submitButton(OSVR_ChannelCount sensor, bool state,
+                                      double eventTimeOffset) {
+        ButtonReport out;
+        /// @todo adjust by eventTimeOffset
         out.timestamp = osvr::util::time::getNow();
-
+        out.sensor = sensor;
+        out.buttonState = state ? OSVR_BUTTON_PRESSED : OSVR_BUTTON_NOT_PRESSED;
         {
             std::lock_guard<std::mutex> lock(m_mutex);
-            m_hmdButtonReports.submitNew(std::move(out), lock);
+            m_buttonReports.submitNew(std::move(out), lock);
         }
     }
 
@@ -368,7 +385,10 @@ namespace vive {
 
     void ViveDriverHost::ProximitySensorState(uint32_t unWhichDevice,
                                               bool bProximitySensorTriggered) {
-        /// @todo - queue it up and send it from the main thread.
+        if (unWhichDevice != 0) {
+            return;
+        }
+        submitButton(PROX_SENSOR_BUTTON_OFFSET, bProximitySensorTriggered, 0);
     }
 
     void
@@ -392,6 +412,108 @@ namespace vive {
         }
     }
 
+    void ViveDriverHost::TrackedDeviceButtonPressed(uint32_t unWhichDevice,
+                                                    EVRButtonId eButtonId,
+                                                    double eventTimeOffset) {
+        handleTrackedButtonPressUnpress(unWhichDevice, eButtonId,
+                                        eventTimeOffset, true);
+    }
+    void ViveDriverHost::TrackedDeviceButtonUnpressed(uint32_t unWhichDevice,
+                                                      EVRButtonId eButtonId,
+                                                      double eventTimeOffset) {
+        handleTrackedButtonPressUnpress(unWhichDevice, eButtonId,
+                                        eventTimeOffset, false);
+    }
+
+    void ViveDriverHost::TrackedDeviceButtonTouched(uint32_t unWhichDevice,
+                                                    EVRButtonId eButtonId,
+                                                    double eventTimeOffset) {
+        handleTrackedButtonTouchUntouch(unWhichDevice, eButtonId,
+                                        eventTimeOffset, true);
+    }
+
+    void ViveDriverHost::TrackedDeviceButtonUntouched(uint32_t unWhichDevice,
+                                                      EVRButtonId eButtonId,
+                                                      double eventTimeOffset) {
+        handleTrackedButtonTouchUntouch(unWhichDevice, eButtonId,
+                                        eventTimeOffset, false);
+    }
+
+    void ViveDriverHost::handleTrackedButtonPressUnpress(uint32_t unWhichDevice,
+                                                         EVRButtonId eButtonId,
+                                                         double eventTimeOffset,
+                                                         bool state) {
+        /// Don't have allocated sensors for controllers above 2.
+        if (unWhichDevice > MAX_CONTROLLER_ID) {
+            return;
+        }
+        if (HMD_SENSOR == unWhichDevice) {
+            if (eButtonId == k_EButton_System) {
+                submitButton(SYSTEM_BUTTON_OFFSET, state, eventTimeOffset);
+            }
+            return;
+        }
+
+        const auto firstButtonId = FIRST_BUTTON_ID[unWhichDevice];
+        switch (eButtonId) {
+        case vr::k_EButton_System:
+            submitButton(firstButtonId + SYSTEM_BUTTON_OFFSET, state,
+                         eventTimeOffset);
+            break;
+        case vr::k_EButton_ApplicationMenu:
+            submitButton(firstButtonId + MENU_BUTTON_OFFSET, state,
+                         eventTimeOffset);
+            break;
+        case vr::k_EButton_Grip:
+            submitButton(firstButtonId + GRIP_BUTTON_OFFSET, state,
+                         eventTimeOffset);
+            break;
+        case vr::k_EButton_DPad_Left:
+            /// n/a on the Vive controller
+            break;
+        case vr::k_EButton_DPad_Up:
+            /// n/a on the Vive controller
+            break;
+        case vr::k_EButton_DPad_Right:
+            /// n/a on the Vive controller
+            break;
+        case vr::k_EButton_DPad_Down:
+            /// n/a on the Vive controller
+            break;
+        case vr::k_EButton_A:
+            /// n/a on the Vive controller
+            break;
+        case vr::k_EButton_SteamVR_Touchpad:
+            submitButton(firstButtonId + TRACKPAD_CLICK_BUTTON_OFFSET, state,
+                         eventTimeOffset);
+            break;
+        case vr::k_EButton_SteamVR_Trigger:
+            submitButton(firstButtonId + TRIGGER_BUTTON_OFFSET, state,
+                         eventTimeOffset);
+            break;
+        default:
+            break;
+        }
+    }
+    void ViveDriverHost::handleTrackedButtonTouchUntouch(uint32_t unWhichDevice,
+                                                         EVRButtonId eButtonId,
+                                                         double eventTimeOffset,
+                                                         bool state) {
+        /// Don't have allocated sensors for controllers above 2.
+        if (unWhichDevice > MAX_CONTROLLER_ID) {
+            return;
+        }
+
+        if (HMD_SENSOR == unWhichDevice) {
+            return;
+        }
+        /// Only mapping touch/untouch to a button for trackpad.
+        if (vr::k_EButton_SteamVR_Touchpad == eButtonId) {
+            submitButton(FIRST_BUTTON_ID[unWhichDevice] +
+                             TRACKPAD_TOUCH_BUTTON_OFFSET,
+                         state, eventTimeOffset);
+        }
+    }
 #if 0
     void
     ViveDriverHost::DeviceDescriptorUpdated(std::string const &json) {

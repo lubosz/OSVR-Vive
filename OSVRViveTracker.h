@@ -61,7 +61,7 @@ namespace vive {
         vr::DriverPose_t report;
     };
 
-    struct HMDButtonReport {
+    struct ButtonReport {
         OSVR_TimeValue timestamp;
         OSVR_ChannelCount sensor;
         bool buttonState;
@@ -105,14 +105,29 @@ namespace vive {
                                   bool bProximitySensorTriggered) override;
 
         void TrackedDevicePropertiesChanged(uint32_t unWhichDevice) override;
+
+        void TrackedDeviceButtonPressed(uint32_t unWhichDevice, EVRButtonId eButtonId, double eventTimeOffset) override;
+
+        void TrackedDeviceButtonUnpressed(uint32_t unWhichDevice, EVRButtonId eButtonId, double eventTimeOffset) override;
+
+        void TrackedDeviceButtonTouched(uint32_t unWhichDevice, EVRButtonId eButtonId, double eventTimeOffset) override;
+
+        void TrackedDeviceButtonUntouched(uint32_t unWhichDevice, EVRButtonId eButtonId, double eventTimeOffset) override;
+
+        //void TrackedDeviceAxisUpdated(uint32_t unWhichDevice, uint32_t unWhichAxis, const VRControllerAxis_t & axisState) override;
+
 /// @}
 
 #if 0
         void DeviceDescriptorUpdated(std::string const &json);
 #endif
 
+
       private:
-        static const auto NUM_BUTTONS = 2;
+        /// joint logic for TrackedDeviceButtonPressed and TrackedDeviceButtonUnpressed
+        void handleTrackedButtonPressUnpress(uint32_t unWhichDevice, EVRButtonId eButtonId, double eventTimeOffset, bool state);
+        /// joint logic for TrackedDeviceButtonTouched and TrackedDeviceButtonUntouched
+        void handleTrackedButtonTouchUntouch(uint32_t unWhichDevice, EVRButtonId eButtonId, double eventTimeOffset, bool state);
 
         /// Does the real work of adding a new device.
         std::pair<bool, std::uint32_t>
@@ -135,13 +150,15 @@ namespace vive {
                                   const DriverPose_t &newPose);
 
         void submitUniverseChange(std::uint64_t newUniverse);
-        void submitHMDButton(OSVR_ChannelCount sensor, bool value);
+
+        void submitButton(OSVR_ChannelCount sensor, bool state,
+            double eventTimeOffset = 0.);
 
         /// @name Mutex-controlled
         /// @{
         std::mutex m_mutex;
         QuickProcessingDeque<TrackingReport> m_trackingReports;
-        QuickProcessingDeque<HMDButtonReport> m_hmdButtonReports;
+        QuickProcessingDeque<ButtonReport> m_buttonReports;
         QuickProcessingDeque<NewDeviceReport> m_newDevices;
         /// @}
 
