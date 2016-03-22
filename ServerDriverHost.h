@@ -90,8 +90,9 @@ class ServerDriverHost : public vr::IServerDriverHost {
 
     virtual bool IsExiting();
 
+    IVRSettings *vrSettings = nullptr;
+
   private:
-    IVRSettings *m_vrSettings = nullptr;
     bool isExiting_ = false;
 };
 

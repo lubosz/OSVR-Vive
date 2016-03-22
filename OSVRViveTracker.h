@@ -134,6 +134,7 @@ namespace vive {
         TrackedDeviceAxisUpdated(uint32_t unWhichDevice, uint32_t unWhichAxis,
                                  const VRControllerAxis_t &axisState) override;
 
+        IVRSettings *GetSettings(const char *) override { return nullptr; }
 /// @}
 
 #if 0

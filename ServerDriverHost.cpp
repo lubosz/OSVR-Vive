@@ -114,11 +114,11 @@ void ServerDriverHost::TrackedDeviceAxisUpdated(
 void ServerDriverHost::MCImageUpdated() { LOG_EVENTS("MCImageUpdated()"); }
 
 IVRSettings *ServerDriverHost::GetSettings(const char *pchInterfaceVersion) {
-    if (nullptr == m_vrSettings) {
+    if (nullptr == vrSettings) {
         LOG_EVENTS("GetSettings(" << pchInterfaceVersion << ")");
     }
 
-    return m_vrSettings;
+    return vrSettings;
 }
 
 void ServerDriverHost::PhysicalIpdSet(uint32_t unWhichDevice,
