@@ -50,9 +50,6 @@ class HardwareDetection {
   public:
     HardwareDetection() {}
     OSVR_ReturnCode operator()(OSVR_PluginRegContext ctx) {
-
-        std::cout << PREFIX << "Got a hardware detection request" << std::endl;
-
         if (m_driverHost) {
             // Already found a Vive.
             /// @todo what are the semantics of the return value from a hardware

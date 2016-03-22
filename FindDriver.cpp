@@ -41,6 +41,8 @@
 #include <boost/filesystem.hpp>
 #endif
 
+#undef VIVELOADER_VERBOSE
+
 namespace osvr {
 namespace vive {
 #if defined(OSVR_WINDOWS)
@@ -113,16 +115,16 @@ namespace vive {
             info.driverName = driver;
 
             computeDriverRootAndFilePath(info, driver);
-
+#ifdef VIVELOADER_VERBOSE
             std::cout << "Will try to load driver from:\n"
                       << info.driverFile << std::endl;
-
             if (exists(path{info.driverRoot})) {
                 std::cout << "Driver root exists" << std::endl;
             }
             if (exists(path{info.driverFile})) {
                 std::cout << "Driver file exists" << std::endl;
             }
+#endif
             if (exists(path{info.driverRoot}) &&
                 exists(path{info.driverFile})) {
                 info.found = true;
@@ -196,15 +198,22 @@ namespace vive {
                (pathLine.back() == '\r' || pathLine.back() == '\n')) {
             pathLine.pop_back();
         }
+
+#ifdef VIVELOADER_VERBOSE
         std::cout << "Path line is: " << pathLine << std::endl;
+#endif
         auto prefixLoc = pathLine.find(LINE_PREFIX);
         auto sub = pathLine.substr(std::string(LINE_PREFIX).size() + prefixLoc);
+#ifdef VIVELOADER_VERBOSE
         std::cout << "substring is: " << sub << std::endl;
+#endif
         ret.rootConfigDir = sub;
         ret.driverConfigDir = sub + PATH_SEP + driver;
 
         if (exists(path{ret.rootConfigDir})) {
+#ifdef VIVELOADER_VERBOSE
             std::cout << "root config dir exists" << std::endl;
+#endif
             ret.valid = true;
         }
 

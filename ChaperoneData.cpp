@@ -84,8 +84,8 @@ getFile(std::string const &fn,
                 break;
             } else {
                 // Null terminate this block and slide it in.
-                std::cout << "read " << bytesRead << " bytes this time "
-                          << std::endl;
+                // std::cout << "read " << bytesRead << " bytes this time "
+                //          << std::endl;
                 buf[bytesRead] = '\0';
                 os << buf.data();
             }
