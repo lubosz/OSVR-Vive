@@ -6,6 +6,7 @@ project(com_osvr_Vive)
 
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
 include(CopyImportedTarget)
+include(GNUInstallDirs)
 
 set(CMAKE_INCLUDE_CURRENT_DIR ON)
 set(CMAKE_CXX_STANDARD 11)
@@ -108,16 +109,17 @@ target_link_libraries(ViveLoader PRIVATE ViveLoaderLib)
 copy_imported_targets(ViveLoader osvr::osvrUtil)
 
 # Build another tool
-
 osvr_convert_json(viveDisplayInput
     input/HTC_Vive_PRE.json
     "${CMAKE_CURRENT_BINARY_DIR}/viveDisplayInput.h")
-add_executable(DisplayExtractor
+add_executable(ViveDisplayExtractor
     DisplayExtractor.cpp
     ${DISPLAY_SOURCES}
     "${CMAKE_CURRENT_BINARY_DIR}/viveDisplayInput.h")
-target_link_libraries(DisplayExtractor PRIVATE ViveLoaderLib JsonCpp::JsonCpp)
-copy_imported_targets(DisplayExtractor osvr::osvrUtil)
+target_link_libraries(ViveDisplayExtractor PRIVATE ViveLoaderLib JsonCpp::JsonCpp)
+copy_imported_targets(ViveDisplayExtractor osvr::osvrUtil)
+install(TARGETS ViveDisplayExtractor
+    RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
 
 # Install files for the plugin.
 install(FILES
