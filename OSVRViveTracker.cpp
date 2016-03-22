@@ -58,7 +58,7 @@ namespace vive {
     static const auto PREFIX = "[OSVR-Vive] ";
 
     /// For the HMD and two controllers
-    static const std::array<uint32_t, 3> FIRST_BUTTON_ID = {0, 1, 8};
+    static const std::array<uint32_t, 3> FIRST_BUTTON_ID = {0, 2, 8};
     static const std::array<uint32_t, 3> FIRST_ANALOG_ID = {0, 1, 4};
 
     /// Offsets from the first button ID for a controller that a button is
@@ -74,7 +74,7 @@ namespace vive {
     /// reported.
     static const auto TRACKPAD_X_ANALOG_OFFSET = 0;
     static const auto TRACKPAD_Y_ANALOG_OFFSET = 1;
-    static const auto TRIGGER_ANALOG_OFFSET = 3;
+    static const auto TRIGGER_ANALOG_OFFSET = 2;
 
     ViveDriverHost::ViveDriverHost()
         : m_universeXform(Eigen::Isometry3d::Identity()),
