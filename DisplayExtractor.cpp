@@ -176,6 +176,11 @@ void handleDisplay(vr::ITrackedDeviceServerDriver *dev,
         return;
     }
 
+    std::cout << "\n"
+              << PREFIX
+              << "Successfully extracted display parameters from Vive.\n"
+              << std::endl;
+
     auto outputFiles =
         computeOutputFiles("HTC_Vive_PRE.json", "HTC_Vive_PRE_meshdata.json");
     auto meshContents = generateMeshFileContents(display, MESH_STEPS);
