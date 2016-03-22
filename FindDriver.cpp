@@ -53,6 +53,7 @@ namespace vive {
 #elif defined(OSVR_MACOSX)
     /// @todo Note that there are no 64-bit steamvr runtimes or drivers on OS X
     static const auto PLATFORM_DIRNAME_BASE = "osx";
+    static const auto DRIVER_EXTENSION = ".dylib";
     static const auto TOOL_EXTENSION = "";
     static const auto PATH_SEP = "/";
 #elif defined(OSVR_LINUX)
