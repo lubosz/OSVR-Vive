@@ -39,13 +39,16 @@
 
 namespace osvr {
 namespace vive {
+    enum class CalibrationType { Standing, Seated };
+
     /// Data on the known tracking universes, chaperone bounds, play spaces,
     /// etc. loaded from the chaperone_info file.
     class ChaperoneData {
       public:
         struct UniverseData {
+            CalibrationType type = CalibrationType::Standing;
             std::array<double, 3> translation;
-            double yaw;
+            double yaw = 0.;
         };
 
         explicit ChaperoneData(std::string const &steamConfigDir);

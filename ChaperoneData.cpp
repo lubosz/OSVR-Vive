@@ -143,6 +143,14 @@ namespace vive {
         UniverseDataMap universes;
     };
 
+    void loadJsonIntoUniverseData(Json::Value const &obj,
+                                  ChaperoneData::UniverseData &data) {
+        data.yaw = obj["yaw"].asDouble();
+        auto &xlate = obj["translation"];
+        for (Json::Value::ArrayIndex i = 0; i < 3; ++i) {
+            data.translation[i] = xlate[i].asDouble();
+        }
+    }
     ChaperoneData::ChaperoneData(std::string const &steamConfigDir)
         : impl_(new Impl), configDir_(steamConfigDir) {
         {
@@ -211,22 +219,31 @@ namespace vive {
 
         for (auto const &univ : impl_->chaperoneInfo["universes"]) {
             auto univIdString = univ["universeID"].asString();
+            UniverseData data;
             auto &standing = univ["standing"];
             if (standing.isNull()) {
                 warn_("No standing calibration data for universe " +
-                      univIdString + ", so had to skip it.");
-                continue;
+                      univIdString + ", so had to look for seated data.");
+                auto &seated = univ["seated"];
+                if (seated.isNull()) {
+                    warn_(
+                        "No seated or standing calibration data for universe " +
+                        univIdString + ", so had to skip it.");
+                    continue;
+                } else {
+                    data.type = CalibrationType::Seated;
+                    loadJsonIntoUniverseData(seated, data);
+                }
+            } else {
+                data.type = CalibrationType::Standing;
+                loadJsonIntoUniverseData(standing, data);
             }
-
+            /// Convert universe ID (64-bit int) from string, in JSON, to an int
+            /// again.
             std::uint64_t id;
             std::istringstream is(univIdString);
             is >> id;
-            UniverseData data;
-            data.yaw = standing["yaw"].asDouble();
-            auto &xlate = standing["translation"];
-            for (Json::Value::ArrayIndex i = 0; i < 3; ++i) {
-                data.translation[i] = xlate[i].asDouble();
-            }
+            /// Add the universe data in.
             impl_->universes.insert(std::make_pair(id, data));
         }
     }
