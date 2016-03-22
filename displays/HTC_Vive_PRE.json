@@ -7,7 +7,7 @@
          "vendor" : "HTC"
       },
       "distortion" : {
-         "rgb_point_samples_external_file" : "ViveMesh15.json"
+         "rgb_point_samples_external_file" : "HTC_Vive_PRE_meshdata.json"
       },
       "eyes" : [
          {
