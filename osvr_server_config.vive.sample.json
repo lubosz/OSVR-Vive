@@ -1,7 +1,7 @@
 {
 
-    /* This one can use an existing build of render manager, but the display descriptor needs to be edited with an absolute path to the mesh file put in it*/
-    "display": "displays/ViveDisplay.json",
-    
+    "comment": "ViveDisplayExtractor should generate a HTC_Vive_PRE.json, referred to below, containing an absolute path to displays/HTC_Vive_PRE_meshdata.json",
+    "display": "displays/HTC_Vive_PRE.json",
+
     "renderManagerConfig": "sample-configs/renderManager.direct.landscape.json"
 }
