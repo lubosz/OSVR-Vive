@@ -184,7 +184,7 @@ namespace vive {
             return;
         }
 
-        Json::Value &eye = impl_->get("eyes")[eyeIndex];
+        Json::Value &eye = impl_->get("eyes")[static_cast<Json::ArrayIndex>(eyeIndex)];
         eye["center_proj_x"] = center[0];
         eye["center_proj_y"] = center[1];
     }
