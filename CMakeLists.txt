@@ -24,6 +24,14 @@ find_package(Eigen3 REQUIRED)
 add_library(OpenVRDriver INTERFACE)
 target_include_directories(OpenVRDriver INTERFACE "${CMAKE_CURRENT_SOURCE_DIR}/vendor/openvr/headers")
 
+add_library(boost_filesystem_v3 INTERFACE)
+target_link_libraries(boost_filesystem_v3
+    INTERFACE
+    ${Boost_FILESYSTEM_LIBRARIES}
+    ${Boost_SYSTEM_LIBRARIES})
+target_compile_definitions(boost_filesystem_v3 INTERFACE BOOST_FILESYSTEM_VERSION=3)
+target_include_directories(boost_filesystem_v3 INTERFACE ${Boost_INCLUDE_DIRS})
+
 add_library(boost_process INTERFACE)
 target_include_directories(boost_process INTERFACE "${CMAKE_CURRENT_SOURCE_DIR}/vendor/boost-process" ${Boost_INCLUDE_DIRS})
 target_link_libraries(boost_process INTERFACE ${Boost_SYSTEM_LIBRARIES} ${Boost_IOSTREAMS_LIBRARIES} ${Boost_FILESYSTEM_LIBRARIES})
@@ -38,14 +46,11 @@ if(MSVC AND NOT MSVC_VERSION LESS 1800)
     target_compile_definitions(filesystem_lib INTERFACE OSVR_USING_FILESYSTEM_TR2)
 else()
     # Interface target for boost fs
-    find_library(Boost REQUIRED COMPONENTS filesystem system)
     add_library(filesystem_lib INTERFACE)
     target_link_libraries(filesystem_lib
         INTERFACE
-        ${Boost_FILESYSTEM_LIBRARIES}
-        ${Boost_SYSTEM_LIBRARIES})
-    target_include_directories(filesystem_lib INTERFACE ${Boost_INCLUDE_DIRS})
-    target_compile_definitions(filesystem_lib INTERFACE BOOST_FILESYSTEM_VERSION=3 OSVR_USING_BOOST_FILESYSTEM)
+        boost_filesystem_v3)
+    target_compile_definitions(filesystem_lib INTERFACE OSVR_USING_BOOST_FILESYSTEM)
 endif()
 
 # Figure out where config files, like display descriptors, should go.
@@ -135,7 +140,7 @@ add_executable(ViveDisplayExtractor
     ComputeOutputFiles.h
     ${DISPLAY_SOURCES}
     "${CMAKE_CURRENT_BINARY_DIR}/viveDisplayInput.h")
-target_link_libraries(ViveDisplayExtractor PRIVATE ViveLoaderLib JsonCpp::JsonCpp filesystem_lib)
+target_link_libraries(ViveDisplayExtractor PRIVATE ViveLoaderLib JsonCpp::JsonCpp boost_filesystem_v3)
 copy_imported_targets(ViveDisplayExtractor osvr::osvrUtil)
 install(TARGETS ViveDisplayExtractor
     RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})

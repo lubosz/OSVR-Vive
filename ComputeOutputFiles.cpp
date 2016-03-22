@@ -27,7 +27,7 @@
 #include "PathConfig.h"
 
 // Library/third-party includes
-// - none
+#include <boost/filesystem.hpp>
 
 // Standard includes
 #include <iostream>
@@ -50,28 +50,15 @@ static inline std::string getBinaryLocation() {
 static inline std::string getBinaryLocation() { return std::string{}; }
 #endif
 
-#if defined(OSVR_USING_FILESYSTEM_TR2)
-#include <filesystem>
-#elif defined(OSVR_USING_BOOST_FILESYSTEM)
-#include <boost/filesystem.hpp>
-#else
-#error "Need some filesystem library"
-#endif
-
-#if defined(OSVR_USING_FILESYSTEM_TR2)
-using std::tr2::sys::path;
-using std::tr2::sys::exists;
-using std::tr2::sys::create_directories;
-#elif defined(OSVR_USING_BOOST_FILESYSTEM)
+namespace fs = boost::filesystem;
 using boost::filesystem::path;
 using boost::filesystem::exists;
-#endif
 
 namespace osvr {
 namespace vive {
     /// Assumes this is an executable in bin/ or bin/BUILDCONFIGNAME
     static inline path getBinDir() {
-        auto binPath = path{getBinaryLocation()};
+        auto binPath = fs::canonical(getBinaryLocation());
 
         auto parentDir = binPath.branch_path();
 
@@ -129,8 +116,8 @@ namespace vive {
             create_directories(displaysDir);
         }
         ret.displayDescriptorPath =
-            (displaysDir / path{displayDescriptorFilename}).string();
-        ret.meshFilePath = (displaysDir / path{meshFilename}).string();
+            (displaysDir / path{displayDescriptorFilename}).generic_string();
+        ret.meshFilePath = (displaysDir / path{meshFilename}).generic_string();
         return ret;
     }
 
