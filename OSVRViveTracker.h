@@ -67,6 +67,14 @@ namespace vive {
         bool buttonState;
     };
 
+    struct AnalogReport {
+        OSVR_TimeValue timestamp;
+        OSVR_ChannelCount sensor;
+        double value;
+        bool secondValid = false;
+        double value2;
+    };
+
     struct NewDeviceReport {
         std::string serialNumber;
         std::uint32_t id;
@@ -106,15 +114,25 @@ namespace vive {
 
         void TrackedDevicePropertiesChanged(uint32_t unWhichDevice) override;
 
-        void TrackedDeviceButtonPressed(uint32_t unWhichDevice, EVRButtonId eButtonId, double eventTimeOffset) override;
+        void TrackedDeviceButtonPressed(uint32_t unWhichDevice,
+                                        EVRButtonId eButtonId,
+                                        double eventTimeOffset) override;
 
-        void TrackedDeviceButtonUnpressed(uint32_t unWhichDevice, EVRButtonId eButtonId, double eventTimeOffset) override;
+        void TrackedDeviceButtonUnpressed(uint32_t unWhichDevice,
+                                          EVRButtonId eButtonId,
+                                          double eventTimeOffset) override;
 
-        void TrackedDeviceButtonTouched(uint32_t unWhichDevice, EVRButtonId eButtonId, double eventTimeOffset) override;
+        void TrackedDeviceButtonTouched(uint32_t unWhichDevice,
+                                        EVRButtonId eButtonId,
+                                        double eventTimeOffset) override;
 
-        void TrackedDeviceButtonUntouched(uint32_t unWhichDevice, EVRButtonId eButtonId, double eventTimeOffset) override;
+        void TrackedDeviceButtonUntouched(uint32_t unWhichDevice,
+                                          EVRButtonId eButtonId,
+                                          double eventTimeOffset) override;
 
-        //void TrackedDeviceAxisUpdated(uint32_t unWhichDevice, uint32_t unWhichAxis, const VRControllerAxis_t & axisState) override;
+        void
+        TrackedDeviceAxisUpdated(uint32_t unWhichDevice, uint32_t unWhichAxis,
+                                 const VRControllerAxis_t &axisState) override;
 
 /// @}
 
@@ -122,12 +140,19 @@ namespace vive {
         void DeviceDescriptorUpdated(std::string const &json);
 #endif
 
-
       private:
-        /// joint logic for TrackedDeviceButtonPressed and TrackedDeviceButtonUnpressed
-        void handleTrackedButtonPressUnpress(uint32_t unWhichDevice, EVRButtonId eButtonId, double eventTimeOffset, bool state);
-        /// joint logic for TrackedDeviceButtonTouched and TrackedDeviceButtonUntouched
-        void handleTrackedButtonTouchUntouch(uint32_t unWhichDevice, EVRButtonId eButtonId, double eventTimeOffset, bool state);
+        /// joint logic for TrackedDeviceButtonPressed and
+        /// TrackedDeviceButtonUnpressed
+        void handleTrackedButtonPressUnpress(uint32_t unWhichDevice,
+                                             EVRButtonId eButtonId,
+                                             double eventTimeOffset,
+                                             bool state);
+        /// joint logic for TrackedDeviceButtonTouched and
+        /// TrackedDeviceButtonUntouched
+        void handleTrackedButtonTouchUntouch(uint32_t unWhichDevice,
+                                             EVRButtonId eButtonId,
+                                             double eventTimeOffset,
+                                             bool state);
 
         /// Does the real work of adding a new device.
         std::pair<bool, std::uint32_t>
@@ -152,13 +177,19 @@ namespace vive {
         void submitUniverseChange(std::uint64_t newUniverse);
 
         void submitButton(OSVR_ChannelCount sensor, bool state,
-            double eventTimeOffset = 0.);
+                          double eventTimeOffset = 0.);
+
+        void submitAnalog(OSVR_ChannelCount sensor, double value);
+        /// Submit both axes for a single mutex lock.
+        void submitAnalogs(OSVR_ChannelCount sensor, double value1,
+                           double value2);
 
         /// @name Mutex-controlled
         /// @{
         std::mutex m_mutex;
         QuickProcessingDeque<TrackingReport> m_trackingReports;
         QuickProcessingDeque<ButtonReport> m_buttonReports;
+        QuickProcessingDeque<AnalogReport> m_analogReports;
         QuickProcessingDeque<NewDeviceReport> m_newDevices;
         /// @}
 

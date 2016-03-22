@@ -174,6 +174,7 @@ namespace vive {
             /// Copy a fixed number of reports that have been queued up.
             m_trackingReports.grabItems(lock);
             m_buttonReports.grabItems(lock);
+            m_analogReports.grabItems(lock);
 
         } // unlock
         // Now that we're out of that mutex, we can go ahead and actually send
@@ -197,6 +198,19 @@ namespace vive {
                 out.buttonState ? OSVR_BUTTON_PRESSED : OSVR_BUTTON_NOT_PRESSED,
                 out.sensor, &out.timestamp);
         }
+        m_buttonReports.clearWorkItems();
+
+        // Deal with analog reports
+        for (auto &out : m_analogReports.accessWorkItems()) {
+            osvrDeviceAnalogSetValueTimestamped(m_dev, m_analog, out.value,
+                                                out.sensor, &out.timestamp);
+            if (out.secondValid) {
+                osvrDeviceAnalogSetValueTimestamped(m_dev, m_analog, out.value2,
+                                                    out.sensor + 1,
+                                                    &out.timestamp);
+            }
+        }
+        m_analogReports.clearWorkItems();
 
         return OSVR_RETURN_SUCCESS;
     }
@@ -272,6 +286,31 @@ namespace vive {
         {
             std::lock_guard<std::mutex> lock(m_mutex);
             m_buttonReports.submitNew(std::move(out), lock);
+        }
+    }
+
+    void ViveDriverHost::submitAnalog(OSVR_ChannelCount sensor, double value) {
+        AnalogReport out;
+        out.timestamp = osvr::util::time::getNow();
+        out.sensor = sensor;
+        out.value = value;
+        {
+            std::lock_guard<std::mutex> lock(m_mutex);
+            m_analogReports.submitNew(std::move(out), lock);
+        }
+    }
+
+    void ViveDriverHost::submitAnalogs(OSVR_ChannelCount sensor, double value1,
+                                       double value2) {
+        AnalogReport out;
+        out.timestamp = osvr::util::time::getNow();
+        out.sensor = sensor;
+        out.value = value1;
+        out.secondValid = true;
+        out.value2 = value2;
+        {
+            std::lock_guard<std::mutex> lock(m_mutex);
+            m_analogReports.submitNew(std::move(out), lock);
         }
     }
 
@@ -375,12 +414,7 @@ namespace vive {
 
     void ViveDriverHost::PhysicalIpdSet(uint32_t unWhichDevice,
                                         float fPhysicalIpdMeters) {
-/// @todo - queue it up and send it from the main thread.
-#if 0
-        auto now = osvr::util::time::getNow();
-        osvrDeviceAnalogSetValueTimestamped(m_dev, m_analog, fPhysicalIpdMeters,
-            IPD_ANALOG, &now);
-#endif
+        submitAnalog(IPD_ANALOG, fPhysicalIpdMeters);
     }
 
     void ViveDriverHost::ProximitySensorState(uint32_t unWhichDevice,
@@ -437,6 +471,41 @@ namespace vive {
                                                       double eventTimeOffset) {
         handleTrackedButtonTouchUntouch(unWhichDevice, eButtonId,
                                         eventTimeOffset, false);
+    }
+
+    void ViveDriverHost::TrackedDeviceAxisUpdated(
+        uint32_t unWhichDevice, uint32_t unWhichAxis,
+        const VRControllerAxis_t &axisState) {
+        /// Don't have allocated sensors for controllers above 2.
+        if (unWhichDevice > MAX_CONTROLLER_ID) {
+            return;
+        }
+        if (HMD_SENSOR == unWhichDevice) {
+            /// no axes on the HMD that we know of.
+            return;
+        }
+
+        const auto firstAnalogId = FIRST_ANALOG_ID[unWhichDevice];
+        switch (unWhichAxis) {
+        case 0:
+            // std::cout << "touchpad " << axisState.x << ", " << axisState.y <<
+            // std::endl;
+            submitAnalogs(firstAnalogId + TRACKPAD_X_ANALOG_OFFSET, axisState.x,
+                          axisState.y);
+            break;
+        case 1:
+            // std::cout << "trigger " << axisState.x << ", " << axisState.y <<
+            // std::endl;
+            /// trigger only uses x
+            submitAnalog(firstAnalogId + TRIGGER_ANALOG_OFFSET, axisState.x);
+            break;
+        default:
+#if 0
+            std::cout << "other axis [" << unWhichAxis << "] " << axisState.x
+                      << ", " << axisState.y << std::endl;
+#endif
+            break;
+        }
     }
 
     void ViveDriverHost::handleTrackedButtonPressUnpress(uint32_t unWhichDevice,
