@@ -384,12 +384,12 @@ namespace vive {
         m_universeId = newUniverse;
         auto known = m_vive->chaperone().knowUniverseId(m_universeId);
         if (!known) {
-            std::cout << PREFIX << "No usable information on this universe "
-                                   "could be found - there may not be a "
-                                   "standing calibration for it in your room "
-                                   "setup. You may wish to complete that then "
-                                   "start the OSVR server again. Will operate "
-                                   "without universe transforms."
+            std::cout << PREFIX
+                      << "No usable information on this universe "
+                         "could be found - there may not be a "
+                         "calibration for it in your room setup. You may wish "
+                         "to complete that then start the OSVR server again. "
+                         "Will operate without universe transforms."
                       << std::endl;
             m_universeXform.setIdentity();
             m_universeRotation.setIdentity();
@@ -397,6 +397,12 @@ namespace vive {
 
         /// Fetch the data
         auto univData = m_vive->chaperone().getDataForUniverse(m_universeId);
+        if (univData.type == osvr::vive::CalibrationType::Seated) {
+            std::cout << PREFIX
+                      << "Only a seated calibration for this universe ID "
+                         "exists: y=0 will not be at floor level."
+                      << std::endl;
+        }
         using namespace Eigen;
         /// Populate the transforms.
         m_universeXform =
