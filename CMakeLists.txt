@@ -48,6 +48,23 @@ else()
     target_compile_definitions(filesystem_lib INTERFACE BOOST_FILESYSTEM_VERSION=3 OSVR_USING_BOOST_FILESYSTEM)
 endif()
 
+# Figure out where config files, like display descriptors, should go.
+if(OSVR_CACHED_CONFIG_ROOT)
+    # Using a new enough core that it indicates this for us, hooray!
+    set(OSVR_CONFIG_ROOT "${OSVR_CACHED_CONFIG_ROOT}")
+else()
+    # TODO remove this once enough time has passed after merging
+    # https://github.com/OSVR/OSVR-Core/pull/402
+    if(WIN32)
+        set(OSVR_CONFIG_ROOT "${CMAKE_INSTALL_BINDIR}")
+    else()
+        set(OSVR_CONFIG_ROOT "${CMAKE_INSTALL_DATAROOTDIR}/osvrcore")
+    endif()
+endif()
+set(OSVRVIVE_BIN_DIR ${CMAKE_INSTALL_BINDIR})
+# Generate configured header with this information.
+configure_file(PathConfig.h.in "${CMAKE_CURRENT_BINARY_DIR}/PathConfig.h")
+
 set(DISPLAY_SOURCES
     DisplayDescriptor.cpp
     DisplayDescriptor.h
@@ -81,7 +98,7 @@ target_link_libraries(ViveLoaderLib
     OpenVRDriver osvr::osvrUtil linkable_into_dll
     PRIVATE
     filesystem_lib boost_process JsonCpp::JsonCpp)
-target_include_directories(ViveLoaderLib PRIVATE ${Boost_INCLUDE_DIRS})
+target_include_directories(ViveLoaderLib PUBLIC ${CMAKE_CURRENT_BINARY_DIRECTORY} PRIVATE ${Boost_INCLUDE_DIRS})
 
 # Build the plugin
 osvr_convert_json(com_osvr_Vive_json
@@ -114,9 +131,11 @@ osvr_convert_json(viveDisplayInput
     "${CMAKE_CURRENT_BINARY_DIR}/viveDisplayInput.h")
 add_executable(ViveDisplayExtractor
     DisplayExtractor.cpp
+    ComputeOutputFiles.cpp
+    ComputeOutputFiles.h
     ${DISPLAY_SOURCES}
     "${CMAKE_CURRENT_BINARY_DIR}/viveDisplayInput.h")
-target_link_libraries(ViveDisplayExtractor PRIVATE ViveLoaderLib JsonCpp::JsonCpp)
+target_link_libraries(ViveDisplayExtractor PRIVATE ViveLoaderLib JsonCpp::JsonCpp filesystem_lib)
 copy_imported_targets(ViveDisplayExtractor osvr::osvrUtil)
 install(TARGETS ViveDisplayExtractor
     RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
