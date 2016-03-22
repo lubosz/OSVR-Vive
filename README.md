@@ -9,32 +9,19 @@ This is a plugin for OSVR that provides access to the tracker data on HTC Vive H
 
 To compile, this project requires OSVR, Eigen, and Boost, as well as the submodules included in the repository (clone with `git clone --recursive`). Compile as you would other CMake-based projects, setting `CMAKE_PREFIX_PATH` to show the way to dependencies in general. You may need to set `EIGEN3_INCLUDE_DIR` specifically.
 
-You may also use a pre-compiled set of binaries from the project.
+You may also use a pre-compiled set of binaries from the project. They're available from <http://access.osvr.com/binary/vive>
 
-## Installation and Usage
-Once built and installed (or binaries downloaded), you'll have files as follows:
-- A plugin file - on Windows, this is a `.dll` file in something like `bin/osvr-plugins-0`. Put that file in the same directory of your OSVR server as the other plugins.
-- In `bin`, a `ViveDisplayExtractor` tool - copy to the `bin` directory of your OSVR server.
-- A sample config file.
+## Developer links
 
-To run, you'll need to have first:
+These may be useful in keeping track of upstream changes to the lighthouse driver library.
 
-- One time setup: Installed SteamVR and run the Room Setup procedure successfully.
-- Each time you want to run an OSVR application, in the SteamVR menu, disable "Direct Mode" then exit SteamVR.
-
-One time setup: You'll need to generate a custom display descriptor and mesh distortion data file for your Vive using the included tool. Making sure that `ViveDisplayExtractor` is alongside `osvr_server` and that your Vive is plugged in, run `ViveDisplayExtractor`. When successful, you'll see something like:
-
-```
-[DisplayExtractor] Writing distortion mesh data file:
-C:/Users/Ryan/Desktop/OSVR/bin/displays/HTC_Vive_PRE_meshdata.json
-
-[DisplayExtractor] Writing display descriptor file:
-C:/Users/Ryan/Desktop/OSVR/bin/displays/HTC_Vive_PRE.json
-
-[DisplayExtractor] Press enter to quit...
-```
-
-**Note**: The resulting configs contain an absolute path to the mesh data, so if you move where your OSVR Server is located, just run `ViveDisplayExtractor` again.
+- [SteamDB Info on SteamVR](https://steamdb.info/app/250820/depots/) - Scroll down to Branches to see the version numbers and build IDs.
+    - [Public/Stable branch](https://steamdb.info/app/250820/depots/?branch=public)
+    - [Beta branch](https://steamdb.info/app/250820/depots/?branch=beta)
+- SteamDB Info for "OpenVR Depots" (contain the Lighthouse driver library used) for various platforms. Revisions include minimal file change details:
+    - [Windows](https://steamdb.info/depot/250821/)
+    - [Linux](https://steamdb.info/depot/250823/)
+    - [OS X](https://steamdb.info/depot/250822/)
 
 ## Licenses
 This plugin: Licensed under the Apache License, Version 2.0.
