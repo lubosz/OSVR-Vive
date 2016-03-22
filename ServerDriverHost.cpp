@@ -47,10 +47,10 @@ using namespace vr;
 vr::ServerDriverHost::ServerDriverHost() {}
 
 bool ServerDriverHost::TrackedDeviceAdded(const char *pchDeviceSerialNumber) {
-    LOG_EVENTS("TrackedDeviceAdded(" << pchDeviceSerialNumber << ")");
     if (onTrackedDeviceAdded) {
         return onTrackedDeviceAdded(pchDeviceSerialNumber);
     }
+    LOG_EVENTS("TrackedDeviceAdded(" << pchDeviceSerialNumber << ")");
     return true;
 }
 
@@ -58,7 +58,6 @@ void ServerDriverHost::TrackedDevicePoseUpdated(uint32_t unWhichDevice,
                                                 const DriverPose_t &newPose) {
 
     LOG_EVENTS("TrackedDevicePoseUpdated(" << unWhichDevice << ", newPose)");
-
 }
 
 void ServerDriverHost::TrackedDevicePropertiesChanged(uint32_t unWhichDevice) {
@@ -115,7 +114,9 @@ void ServerDriverHost::TrackedDeviceAxisUpdated(
 void ServerDriverHost::MCImageUpdated() { LOG_EVENTS("MCImageUpdated()"); }
 
 IVRSettings *ServerDriverHost::GetSettings(const char *pchInterfaceVersion) {
-    LOG_EVENTS("GetSettings(" << pchInterfaceVersion << ")");
+    if (nullptr == m_vrSettings) {
+        LOG_EVENTS("GetSettings(" << pchInterfaceVersion << ")");
+    }
 
     return m_vrSettings;
 }
