@@ -379,6 +379,17 @@ namespace vive {
         if (newUniverse == m_universeId) {
             return;
         }
+        if (m_universeId != 0 && newUniverse == 0) {
+            /// These are usually tracking glitches, not actual changes in
+            /// tracking universes.
+            std::cout << PREFIX
+                      << "Got loss of universe ID (Change of universe ID from "
+                      << m_universeId << " to " << newUniverse
+                      << ") but will continue using existing transforms for "
+                         "optimum reliability."
+                      << std::endl;
+            return;
+        }
         std::cout << PREFIX << "Change of universe ID from " << m_universeId
                   << " to " << newUniverse << std::endl;
         m_universeId = newUniverse;
