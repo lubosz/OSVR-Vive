@@ -224,7 +224,7 @@ namespace vive {
             UniverseData data;
             data.yaw = standing["yaw"].asDouble();
             auto &xlate = standing["translation"];
-            for (std::size_t i = 0; i < 3; ++i) {
+            for (Json::Value::ArrayIndex i = 0; i < 3; ++i) {
                 data.translation[i] = xlate[i].asDouble();
             }
             impl_->universes.insert(std::make_pair(id, data));
