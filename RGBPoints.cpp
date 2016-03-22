@@ -8,7 +8,7 @@
     <http://sensics.com/osvr>
 */
 
-// Copyright 2016 Sensics, Inc.
+// Copyright 2016 Razer Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -90,8 +90,9 @@ namespace vive {
 
     RGBPoints::RGBPoints() : impl_(new Impl) {}
     RGBPoints::~RGBPoints() {}
-    void RGBPoints::addSample(Eye eye, Point2 const &inputUV, Point2 const &outR,
-                            Point2 const &outG, Point2 const &outB) {
+    void RGBPoints::addSample(Eye eye, Point2 const &inputUV,
+                              Point2 const &outR, Point2 const &outG,
+                              Point2 const &outB) {
         impl_->addSample(eye, inputUV, outR, outG, outB);
     }
     std::string RGBPoints::getSeparateFile() const {

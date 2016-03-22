@@ -8,7 +8,7 @@
     <http://sensics.com/osvr>
 */
 
-// Copyright 2016 Sensics, Inc.
+// Copyright 2016 Razer Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -189,7 +189,8 @@ namespace vive {
             return;
         }
 
-        Json::Value &eye = impl_->get("eyes")[static_cast<Json::ArrayIndex>(eyeIndex)];
+        Json::Value &eye =
+            impl_->get("eyes")[static_cast<Json::ArrayIndex>(eyeIndex)];
         eye["center_proj_x"] = center[0];
         eye["center_proj_y"] = center[1];
     }

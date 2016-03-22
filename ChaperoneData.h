@@ -8,7 +8,7 @@
     <http://sensics.com/osvr>
 */
 
-// Copyright 2016 Sensics, Inc.
+// Copyright 2016 Razer Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -32,10 +32,10 @@
 // - none
 
 // Standard includes
+#include <array>
+#include <cstdint>
 #include <memory>
 #include <string>
-#include <cstdint>
-#include <array>
 
 namespace osvr {
 namespace vive {
@@ -75,8 +75,8 @@ namespace vive {
         std::size_t getNumberOfKnownUniverses() const;
 
       private:
-        void errorOut_(std::string const& message);
-        void warn_(std::string const& message);
+        void errorOut_(std::string const &message);
+        void warn_(std::string const &message);
         struct Impl;
         std::unique_ptr<Impl> impl_;
         const std::string configDir_;

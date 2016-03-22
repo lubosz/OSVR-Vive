@@ -8,7 +8,7 @@
     <http://sensics.com/osvr>
 */
 
-// Copyright 2016 Sensics, Inc.
+// Copyright 2016 Razer Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -25,7 +25,6 @@
 #ifndef INCLUDED_MonoPoints_h_GUID_B2BB7190_08CD_4C9D_FDB5_D7D8B19097F1
 #define INCLUDED_MonoPoints_h_GUID_B2BB7190_08CD_4C9D_FDB5_D7D8B19097F1
 
-
 // Internal Includes
 // - none
 
@@ -36,4 +35,3 @@
 // - none
 
 #endif // INCLUDED_MonoPoints_h_GUID_B2BB7190_08CD_4C9D_FDB5_D7D8B19097F1
-
