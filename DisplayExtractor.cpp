@@ -25,6 +25,7 @@
 #define _USE_MATH_DEFINES
 
 // Internal Includes
+#include "ComputeOutputFiles.h"
 #include "DisplayDescriptor.h"
 #include "DriverWrapper.h"
 #include "GetComponent.h"
@@ -91,8 +92,10 @@ bool updateFOV(DisplayDescriptor &descriptor,
     /// clipping planes.
     auto leftClip = getClippingPlanes(display, vr::Eye_Left);
     auto rightClip = getClippingPlanes(display, vr::Eye_Right);
+#if 0
     std::cout << PREFIX << "leftClip: " << leftClip << std::endl;
     std::cout << PREFIX << "rightClip: " << rightClip << std::endl;
+#endif
 
     auto leftFovs = clipPlanesToHalfFovs(leftClip);
     auto rightFovs = clipPlanesToHalfFovs(rightClip);
@@ -106,8 +109,8 @@ bool updateFOV(DisplayDescriptor &descriptor,
 
     // Couldn't compute the conversion - must not be symmetrical enough
     // at the moment.
-    std::cout << PREFIX << "Will attempt to symmetrize and re-convert "
-                           "an approximation of the field of view."
+    std::cout << PREFIX << "First attempt was not symmetrical, will symmetrize "
+                           "and re-convert the field of view."
               << std::endl;
     averageAndSymmetrize(leftFovs, rightFovs);
     fovsResult = twoEyeFovsToMonoWithOverlap(leftFovs, rightFovs);
@@ -121,38 +124,14 @@ bool updateFOV(DisplayDescriptor &descriptor,
     return false;
 }
 
-inline bool approxEqual(float a, float b, float maxDiff,
-                        float maxRelDiff = FLT_EPSILON) {
-    /// Inspired by Bruce Dawson's AlmostEqualRelativeAndAbs
-    /// https://randomascii.wordpress.com/2012/02/25/comparing-floating-point-numbers-2012-edition/
-    auto diff = std::abs(a - b);
-    if (diff <= maxDiff) {
-        return true;
-    }
-    auto larger = std::max(std::abs(a), std::abs(b));
-    return diff <= larger * maxRelDiff;
-}
-
-static size_t g_approxEqual = 0;
-static size_t g_approxNe = 0;
-
 inline void addMeshPoint(vr::IVRDisplayComponent *display, RGBPoints &mesh,
                          const float u, const float v) {
-    static const float maxdiff = 0.001f;
     for (std::size_t eye = 0; eye < 2; ++eye) {
         auto steamEye = eye == 0 ? vr::Eye_Left : vr::Eye_Right;
         auto meshEye = eye == 0 ? RGBPoints::Eye::Left : RGBPoints::Eye::Right;
 
         auto ret = display->ComputeDistortion(steamEye, u, v);
 
-        if (approxEqual(ret.rfRed[0], ret.rfGreen[0], maxdiff) &&
-            approxEqual(ret.rfRed[0], ret.rfBlue[0], maxdiff) &&
-            approxEqual(ret.rfRed[1], ret.rfGreen[1], maxdiff) &&
-            approxEqual(ret.rfRed[1], ret.rfBlue[1], maxdiff)) {
-            g_approxEqual++;
-        } else {
-            g_approxNe++;
-        }
         mesh.addSample(meshEye, {{u, v}}, {{ret.rfRed[0], ret.rfRed[1]}},
                        {{ret.rfGreen[0], ret.rfGreen[1]}},
                        {{ret.rfBlue[0], ret.rfBlue[1]}});
@@ -175,44 +154,11 @@ std::string generateMeshFileContents(vr::IVRDisplayComponent *display,
     }
     // and get (1, 1) as well.
     addMeshPoint(display, mesh, 1, 1);
-#if 0
-    std::cout << PREFIX << "MESH: " << mesh.getSeparateFileStyled()
-              << std::endl;
-#endif
-
-    std::cout << PREFIX << "MESH COLOR MATCHING: " << g_approxEqual
-              << " approx equal, " << g_approxNe << " not ("
-              << (g_approxEqual / (g_approxEqual + g_approxNe) * 100) << "%)"
-              << std::endl;
     return mesh.getSeparateFile();
 }
 
-void dumpStringProp(vr::ITrackedDeviceServerDriver *dev, const char name[],
-                    vr::ETrackedDeviceProperty prop) {
-    auto propVal = getStringProperty(dev, prop);
-    if (vr::TrackedProp_Success == propVal.second) {
-        std::cout << name << ": '" << propVal.first << "'" << std::endl;
-    } else {
-        std::cout << name << ": '" << propVal.first << "' (got an error, code "
-                  << propVal.second << ")" << std::endl;
-    }
-}
-
-#define DUMP_STRING_PROP(DEV, PROPNAME)                                        \
-    do {                                                                       \
-        dumpStringProp(DEV, #PROPNAME, vr::PROPNAME);                          \
-    } while (0)
-
 void handleDisplay(vr::ITrackedDeviceServerDriver *dev,
                    vr::IVRDisplayComponent *display) {
-    DUMP_STRING_PROP(dev, Prop_ManufacturerName_String);
-    DUMP_STRING_PROP(dev, Prop_ModelNumber_String);
-    DUMP_STRING_PROP(dev, Prop_SerialNumber_String);
-    DUMP_STRING_PROP(dev, Prop_RenderModelName_String);
-    DUMP_STRING_PROP(dev, Prop_TrackingSystemName_String);
-    DUMP_STRING_PROP(dev, Prop_AttachedDeviceId_String);
-    DUMP_STRING_PROP(dev, Prop_CameraFirmwareDescription_String);
-    DUMP_STRING_PROP(dev, Prop_ModeLabel_String);
 
     g_gotDisplay = true;
     /// Verify/check the resolution
@@ -230,18 +176,24 @@ void handleDisplay(vr::ITrackedDeviceServerDriver *dev,
         return;
     }
 
+    auto outputFiles =
+        computeOutputFiles("HTC_Vive_PRE.json", "HTC_Vive_PRE_meshdata.json");
     auto meshContents = generateMeshFileContents(display, MESH_STEPS);
-    static const auto MeshFilename = "ViveMesh.json";
+
+    std::cout << PREFIX << "Writing distortion mesh data file:\n"
+              << outputFiles.meshFilePath << "\n"
+              << std::endl;
     {
-        std::ofstream os(MeshFilename);
+        std::ofstream os(outputFiles.meshFilePath);
         os << meshContents << std::flush;
         os.close();
     }
-    g_descriptor->setRGBMeshExternalFile(MeshFilename);
-
-    static const auto DisplayConfig = "ViveDisplay.json";
+    g_descriptor->setRGBMeshExternalFile(outputFiles.meshFilePath);
+    std::cout << PREFIX << "Writing display descriptor file:\n"
+              << outputFiles.displayDescriptorPath << "\n"
+              << std::endl;
     {
-        std::ofstream os(DisplayConfig);
+        std::ofstream os(outputFiles.displayDescriptorPath);
         os << g_descriptor->getDescriptor() << std::flush;
         os.close();
     }
@@ -297,7 +249,9 @@ int main() {
                 auto disp =
                     osvr::vive::getComponent<vr::IVRDisplayComponent>(dev);
                 if (disp) {
-                    std::cout << PREFIX << "-- it's a display, too!"
+                    std::cout << PREFIX
+                              << "-- it's a display, too! We'll extract its "
+                                 "display parameters now."
                               << std::endl;
                     handleDisplay(dev, disp);
                     break;
@@ -313,10 +267,6 @@ int main() {
             do {
                 std::this_thread::sleep_for(std::chrono::milliseconds(20));
             } while (vive.serverDevProvider().ShouldBlockStandbyMode());
-        }
-
-        if (g_gotDisplay) {
-            std::cout << "\n\n" << g_descriptor->getDescriptor() << std::endl;
         }
         std::cout << PREFIX << "Press enter to quit..." << std::endl;
         std::cin.ignore();

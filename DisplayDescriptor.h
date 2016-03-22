@@ -82,7 +82,8 @@ namespace vive {
     /// (success, result) pair.
     std::pair<bool, Fovs>
     twoEyeFovsToMonoWithOverlap(HalfFieldsOfViewDegrees const &leftFov,
-                                HalfFieldsOfViewDegrees const &rightFov);
+                                HalfFieldsOfViewDegrees const &rightFov,
+                                const bool verbose = false);
 
     /// As the current display model can't handle a variety of non-matching or
     /// asymmetrical displays, the twoEyeFovsToMonoWithOverlap function can fail

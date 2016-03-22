@@ -75,16 +75,18 @@ namespace vive {
 
     std::pair<bool, Fovs>
     twoEyeFovsToMonoWithOverlap(HalfFieldsOfViewDegrees const &leftFov,
-                                HalfFieldsOfViewDegrees const &rightFov) {
+                                HalfFieldsOfViewDegrees const &rightFov,
+                                const bool verbose) {
         Fovs ret;
 
         /// Lambda for spitting an error message, and returning an error state
         /// and the partial answer we had, for more concise error handling.
         auto withError = [&](const char *msg) {
-            std::cerr << "***ERROR: Eyes are " << msg
-                      << " - cannot be represented in this display schema!"
-                      << std::endl;
-
+            if (verbose) {
+                std::cerr << "***ERROR: Eyes are " << msg
+                          << " - cannot be represented in this display schema!"
+                          << std::endl;
+            }
             return std::make_pair(false, ret);
         };
 
@@ -93,8 +95,11 @@ namespace vive {
         auto notEqual = [](float a, float b) {
             return !approxEqual(a, b, 0.25);
         };
-        std::cout << "left: " << leftFov << std::endl;
-        std::cout << "right: " << rightFov << std::endl;
+
+        if (verbose) {
+            std::cout << PREFIX << "left: " << leftFov << std::endl;
+            std::cout << PREFIX << "right: " << rightFov << std::endl;
+        }
 
         if (notEqual(leftFov.left, rightFov.right) ||
             notEqual(rightFov.left, leftFov.right)) {
