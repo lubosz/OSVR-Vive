@@ -34,6 +34,7 @@ C:/Users/Ryan/Desktop/OSVR/bin/displays/HTC_Vive_PRE.json
 [DisplayExtractor] Press enter to quit...
 ```
 
+**Note**: The resulting configs contain an absolute path to the mesh data, so if you move where your OSVR Server is located, just run `ViveDisplayExtractor` again.
 
 ## Licenses
 This plugin: Licensed under the Apache License, Version 2.0.
