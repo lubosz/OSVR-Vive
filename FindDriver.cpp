@@ -193,12 +193,18 @@ namespace vive {
         info.driverFile = p.string();
     }
 
-    DriverLocationInfo findDriver(std::string const &driver) {
+    /// Underlying implementation - hand it the preloaded json.
+    inline DriverLocationInfo findDriver(Json::Value const &json,
+                                         std::string const &driver) {
 
         DriverLocationInfo info;
+        auto &runtimes = json["runtime"];
+        if (!runtimes.isArray()) {
+            return info;
+        }
 
-        for (auto &root : getSteamVRRoots()) {
-            info.steamVrRoot = root;
+        for (auto &root : runtimes) {
+            info.steamVrRoot = root.asString();
             info.driverName = driver;
 
             computeDriverRootAndFilePath(info, driver);
@@ -220,6 +226,9 @@ namespace vive {
         }
         info = DriverLocationInfo{};
         return info;
+    }
+    DriverLocationInfo findDriver(std::string const &driver) {
+        return findDriver(getPathConfig(), driver);
     }
 
     std::string getToolLocation(std::string const &toolName,
@@ -243,10 +252,10 @@ namespace vive {
         return std::string{};
     }
 
-    ConfigDirs findConfigDirs(std::string const & /*steamVrRoot*/,
-                              std::string const &driver) {
+    /// Underlying implementation - hand it the preloaded json.
+    inline ConfigDirs findConfigDirs(Json::Value const &json,
+                                     std::string const &driver) {
         ConfigDirs ret;
-        auto json = getPathConfig();
         auto const &configLocations = json["config"];
         if (!configLocations.isArray()) {
             return ret;
@@ -262,6 +271,32 @@ namespace vive {
             return ret;
         }
         ret = ConfigDirs{};
+        return ret;
+    }
+    ConfigDirs findConfigDirs(std::string const & /*steamVrRoot*/,
+                              std::string const &driver) {
+        return findConfigDirs(getPathConfig(), driver);
+    }
+
+    LocationInfo findLocationInfoForDriver(std::string const &driver) {
+        auto json = getPathConfig();
+        LocationInfo ret;
+
+        auto config = findConfigDirs(json, driver);
+        if (config.valid) {
+            ret.configFound = true;
+            ret.rootConfigDir = config.rootConfigDir;
+            ret.driverConfigDir = config.driverConfigDir;
+        }
+        auto driverLoc = findDriver(json, driver);
+        if (driverLoc.found) {
+            ret.driverFound = true;
+            ret.steamVrRoot = driverLoc.steamVrRoot;
+            ret.driverRoot = driverLoc.driverRoot;
+            ret.driverName = driverLoc.driverName;
+            ret.driverFile = driverLoc.driverFile;
+        }
+        ret.found = (driverLoc.found && config.valid);
         return ret;
     }
 

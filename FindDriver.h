@@ -45,10 +45,30 @@ namespace vive {
         std::string driverFile;
         std::string driverName;
 
-        /// If this field is false, the other field contain invalid data -
+        /// If this field is false, the other fields contain invalid data -
         /// the driver could not be found.
         bool found = false;
     };
+
+    struct LocationInfo {
+        std::string steamVrRoot;
+        std::string driverRoot;
+        std::string driverFile;
+        std::string driverName;
+        bool driverFound = false;
+
+        std::string rootConfigDir;
+        std::string driverConfigDir;
+        bool configFound = false;
+
+        /// If this field is false, the other fields may contain invalid data -
+        /// the driver could not be found.
+        bool found = false;
+    };
+
+    /// Get the location information on the given driver, including config info.
+    LocationInfo findLocationInfoForDriver(
+        std::string const &driver = std::string(DRIVER_NAME));
 
     /// Get the location information on the given driver
     DriverLocationInfo
