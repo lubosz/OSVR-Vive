@@ -1,6 +1,3 @@
 [submodule "vendor/openvr"]
 	path = vendor/openvr
 	url = https://github.com/ValveSoftware/openvr.git
-[submodule "vendor/boost-process"]
-	path = vendor/boost-process
-	url = https://github.com/OSVR/boost-process.git
