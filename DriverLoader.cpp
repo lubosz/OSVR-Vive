@@ -28,13 +28,14 @@
 #include "SearchPathExtender.h"
 
 // Library/third-party includes
-// - none
+#include <osvr/Util/PlatformConfig.h>
 
 // Standard includes
 #include <iostream>
 
-#if _WIN32
+#if defined(OSVR_WINDOWS)
 #define WIN32_LEAN_AND_MEAN
+#define NO_MINMAX
 #include <windows.h>
 #endif
 
@@ -44,20 +45,33 @@ namespace vive {
     static const auto ENTRY_POINT_FUNCTION_NAME = "HmdDriverFactory";
 
     struct DriverLoader::Impl {
+/// Platform-specific handle to dynamic library
 #if defined(OSVR_WINDOWS)
         HMODULE driver_ = nullptr;
-#else
+#elif defined(OSVR_MACOSX)
+#error "Implementation incomplete!"
+#elif defined(OSVR_LINUX)
+#error "Implementation incomplete!"
 #endif
-        ~Impl() {
 
+        /// Destructor: should contain platform-specific code to unload dynamic
+        /// library.
+        ~Impl() {
 #if defined(OSVR_WINDOWS)
             if (driver_) {
                 FreeLibrary(driver_);
             }
-#else
+#elif defined(OSVR_MACOSX)
+#error "Implementation incomplete! Unload dynamic library here!"
+#elif defined(OSVR_LINUX)
+#error "Implementation incomplete! Unload dynamic library here!"
 #endif
         }
     };
+
+    /// Constructor should contain platform-specific code to load dynamic
+    /// library to populate handle in pimpl struct and extract the entry point
+    /// function pointer.
     DriverLoader::DriverLoader(std::string const &driverRoot,
                                std::string const &driverFile)
         : impl_(new Impl) {
@@ -77,7 +91,12 @@ namespace vive {
             throw CouldNotLoadEntryPoint();
         }
         factory_ = reinterpret_cast<DriverFactory>(proc);
-#else
+#elif defined(OSVR_MACOSX)
+#error                                                                         \
+    "Implementation incomplete! Load dynamic library here and retrieve entry point function here!"
+#elif defined(OSVR_LINUX)
+#error                                                                         \
+    "Implementation incomplete! Load dynamic library here and retrieve entry point function here!"
 #endif
     }
 
