@@ -59,7 +59,7 @@ namespace vive {
         /// to pass in.
         explicit DriverWrapper(vr::ServerDriverHost *serverDriverHost)
             : serverDriverHost_(serverDriverHost),
-              driverLocation_(findDriver()) {
+              locations_(findLocationInfoForDriver()) {
             commonInit_();
         }
 
@@ -67,7 +67,7 @@ namespace vive {
         DriverWrapper()
             : owningServerDriverHost_(new vr::ServerDriverHost),
               serverDriverHost_(owningServerDriverHost_.get()),
-              driverLocation_(findDriver()) {
+              locations_(findLocationInfoForDriver()) {
             commonInit_();
         }
 
@@ -82,8 +82,7 @@ namespace vive {
         DriverWrapper(DriverWrapper &&other)
             : owningServerDriverHost_(std::move(other.owningServerDriverHost_)),
               serverDriverHost_(std::move(other.serverDriverHost_)),
-              driverLocation_(std::move(other.driverLocation_)),
-              configDirs_(std::move(other.configDirs_)),
+              locations_(std::move(other.locations_)),
               chaperone_(std::move(other.chaperone_)),
               loader_(std::move(other.loader_)),
               serverDeviceProvider_(std::move(other.serverDeviceProvider_)),
@@ -100,20 +99,20 @@ namespace vive {
                    haveServerDeviceHost();
         }
 
-        bool foundDriver() const { return driverLocation_.found; }
+        bool foundDriver() const { return locations_.driverFound; }
 
         std::string const &getDriverFileLocation() const {
-            return driverLocation_.driverFile;
+            return locations_.driverFile;
         }
 
-        bool foundConfigDirs() const { return configDirs_.valid; }
+        bool foundConfigDirs() const { return locations_.configFound; }
 
         std::string const &getDriverConfigDir() const {
-            return configDirs_.driverConfigDir;
+            return locations_.driverConfigDir;
         }
 
         std::string const &getRootConfigDir() const {
-            return configDirs_.rootConfigDir;
+            return locations_.rootConfigDir;
         }
 
         bool haveDriverLoaded() const {
@@ -141,7 +140,7 @@ namespace vive {
                 throw std::logic_error("Calls to isHMDPresent must occur "
                                        "before startServerDeviceProvider!");
             }
-            return loader_->isHMDPresent(configDirs_.rootConfigDir);
+            return loader_->isHMDPresent(locations_.rootConfigDir);
         }
 
         /// This must be called before accessing the server device provider.
@@ -166,7 +165,7 @@ namespace vive {
             serverDeviceProvider_ =
                 getProvider<vr::IServerTrackedDeviceProvider>(
                     std::move(loader_), logger, serverDriverHost_,
-                    configDirs_.driverConfigDir);
+                    locations_.driverConfigDir);
             return static_cast<bool>(serverDeviceProvider_);
         }
 
@@ -219,14 +218,13 @@ namespace vive {
             if (!foundDriver()) {
                 return;
             }
-            configDirs_ = findConfigDirs(driverLocation_);
             if (!foundConfigDirs()) {
                 return;
             }
             chaperone_.reset(new ChaperoneData(getRootConfigDir()));
 
-            loader_ = DriverLoader::make(driverLocation_.driverRoot,
-                                         driverLocation_.driverFile);
+            loader_ = DriverLoader::make(locations_.driverRoot,
+                                         locations_.driverFile);
             if (!haveDriverLoaded()) {
                 return;
             }
@@ -238,8 +236,7 @@ namespace vive {
         /// passed in.
         vr::ServerDriverHost *serverDriverHost_;
 
-        DriverLocationInfo driverLocation_;
-        ConfigDirs configDirs_;
+        LocationInfo locations_;
         std::unique_ptr<ChaperoneData> chaperone_;
 
         std::unique_ptr<DriverLoader> loader_;

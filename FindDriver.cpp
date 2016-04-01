@@ -27,7 +27,9 @@
 
 // Library/third-party includes
 #include <boost/iostreams/stream.hpp>
-#include <boost/process.hpp>
+#include <json/reader.h>
+#include <json/value.h>
+#include <osvr/Util/Finally.h>
 #include <osvr/Util/PlatformConfig.h>
 
 // Standard includes
@@ -41,7 +43,13 @@
 #include <boost/filesystem.hpp>
 #endif
 
+#if defined(OSVR_WINDOWS)
+#include <shlobj.h>
+#endif
+
 #undef VIVELOADER_VERBOSE
+
+using osvr::util::finally;
 
 namespace osvr {
 namespace vive {
@@ -65,20 +73,80 @@ namespace vive {
 #error "Sorry, Valve does not produce a SteamVR runtime for your platform."
 #endif
 
-#if _MSC_VER == 1800 || _MSC_VER == 1900
+#if defined(OSVR_USING_FILESYSTEM_TR2)
     using std::tr2::sys::path;
+    using std::tr2::sys::wpath;
     using std::tr2::sys::exists;
-#else
+#elif defined(OSVR_USING_BOOST_FILESYSTEM)
     using boost::filesystem::path;
     using boost::filesystem::exists;
 #endif
 
+#ifdef OSVR_MACOSX
+    inline std::string getPlatformBitSuffix() {
+        // they use universal binaries but stick them in "32"
+        return "32";
+    }
+#else
+    inline std::string getPlatformBitSuffix() {
+        return std::to_string(sizeof(void *) * CHAR_BIT);
+    }
+#endif
+
     inline std::string getPlatformDirname() {
-        return PLATFORM_DIRNAME_BASE +
-               std::to_string(sizeof(void *) * CHAR_BIT);
+        return PLATFORM_DIRNAME_BASE + getPlatformBitSuffix();
+    }
+
+    inline void parsePathConfigFile(std::istream &is, Json::Value &ret) {
+        Json::Reader reader;
+        if (!reader.parse(is, ret)) {
+            std::cerr << "Error parsing file containing path configuration - "
+                         "have you run SteamVR yet?"
+                      << std::endl;
+            std::cerr << reader.getFormattedErrorMessages() << std::endl;
+        }
     }
 #if defined(OSVR_WINDOWS)
 
+    inline Json::Value getPathConfig() {
+        PWSTR outString = nullptr;
+        Json::Value ret;
+        // It's OK to use Vista+ stuff here, since openvr_api.dll uses Vista+
+        // stuff too.
+        auto hr =
+            SHGetKnownFolderPath(FOLDERID_LocalAppData, 0, nullptr, &outString);
+        if (!SUCCEEDED(hr)) {
+            std::cerr << "Could not get local app data directory!" << std::endl;
+            return ret;
+        }
+        // Free the string returned when we're all done.
+        auto freeString = [&] { CoTaskMemFree(outString); };
+        // Build the path to the file.
+        auto vrPaths =
+            wpath(outString) / wpath(L"openvr") / wpath(L"openvrpaths.vrpath");
+        std::ifstream is(vrPaths.string());
+        if (!is) {
+            std::wcerr << L"Could not open file containing path configuration "
+                          L"- have you run SteamVR yet? "
+                       << vrPaths << L"\n";
+            return ret;
+        }
+        parsePathConfigFile(is, ret);
+        return ret;
+    }
+#elif defined(OSVR_MACOSX)
+    inline Json::Value getPathConfig() {
+#error "implementation not complete"
+    }
+#elif defined(OSVR_LINUX)
+
+    inline Json::Value getPathConfig() {
+#error "implementation not complete"
+    }
+#endif
+
+#if 0
+#if defined(OSVR_WINDOWS)
     inline std::vector<std::string> getSteamVRRoots() {
         /// @todo make this better - there's Windows API for that.
         return std::vector<std::string>{
@@ -96,6 +164,22 @@ namespace vive {
 #error "implementation not complete"
     }
 #endif
+#endif
+
+    inline std::vector<std::string> getSteamVRRoots(Json::Value const &json) {
+        std::vector<std::string> ret;
+        auto &runtimes = json["runtime"];
+        if (!runtimes.isArray()) {
+            return ret;
+        }
+        for (auto &runtime : runtimes) {
+            ret.emplace_back(runtime.asString());
+        }
+        return ret;
+    }
+    inline std::vector<std::string> getSteamVRRoots() {
+        return getSteamVRRoots(getPathConfig());
+    }
 
     inline void computeDriverRootAndFilePath(DriverLocationInfo &info,
                                              std::string const &driver) {
@@ -109,10 +193,18 @@ namespace vive {
         info.driverFile = p.string();
     }
 
-    DriverLocationInfo findDriver(std::string const &driver) {
+    /// Underlying implementation - hand it the preloaded json.
+    inline DriverLocationInfo findDriver(Json::Value const &json,
+                                         std::string const &driver) {
+
         DriverLocationInfo info;
-        for (auto &root : getSteamVRRoots()) {
-            info.steamVrRoot = root;
+        auto &runtimes = json["runtime"];
+        if (!runtimes.isArray()) {
+            return info;
+        }
+
+        for (auto &root : runtimes) {
+            info.steamVrRoot = root.asString();
             info.driverName = driver;
 
             computeDriverRootAndFilePath(info, driver);
@@ -135,6 +227,10 @@ namespace vive {
         info = DriverLocationInfo{};
         return info;
     }
+    DriverLocationInfo findDriver(std::string const &driver) {
+        return findDriver(getPathConfig(), driver);
+    }
+
     std::string getToolLocation(std::string const &toolName,
                                 std::string const &steamVrRoot) {
         std::vector<std::string> searchPath;
@@ -156,68 +252,51 @@ namespace vive {
         return std::string{};
     }
 
-    ConfigDirs findConfigDirs(std::string const &steamVrRoot,
-                              std::string const &driver) {
-        static const auto LINE_PREFIX = "Config path = ";
+    /// Underlying implementation - hand it the preloaded json.
+    inline ConfigDirs findConfigDirs(Json::Value const &json,
+                                     std::string const &driver) {
         ConfigDirs ret;
-        bool foundLine = false;
-        auto vrpathregFile =
-            osvr::vive::getToolLocation("vrpathreg", steamVrRoot);
-        if (vrpathregFile.empty()) {
+        auto const &configLocations = json["config"];
+        if (!configLocations.isArray()) {
             return ret;
         }
-        std::string pathLine;
-        {
-            using namespace boost::process;
-            using namespace boost::process::initializers;
-            using namespace boost::iostreams;
-            auto p = create_pipe();
-            file_descriptor_sink sink(p.sink, close_handle);
-            auto c = execute(run_exe(vrpathregFile),
-#ifdef _WIN32
-
-                             show_window(SW_HIDE),
-#endif
-                             bind_stdout(sink), bind_stderr(sink));
-
-            file_descriptor_source source(p.source, close_handle);
-            stream<file_descriptor_source> is(source);
-
-            for (int i = 0; i < 4; ++i) {
-                std::getline(is, pathLine);
-                if (pathLine.find(LINE_PREFIX) != std::string::npos) {
-                    foundLine = true;
-                    break;
-                }
+        for (auto &configDir : configLocations) {
+            auto configPath = path{configDir.asString()};
+            if (!exists(configPath)) {
+                continue;
             }
-            wait_for_exit(c);
-        }
-        if (!foundLine) {
+            ret.rootConfigDir = configPath.string();
+            ret.driverConfigDir = (configPath / path{driver}).string();
+            ret.valid = true;
             return ret;
         }
-        while (!pathLine.empty() &&
-               (pathLine.back() == '\r' || pathLine.back() == '\n')) {
-            pathLine.pop_back();
+        ret = ConfigDirs{};
+        return ret;
+    }
+    ConfigDirs findConfigDirs(std::string const & /*steamVrRoot*/,
+                              std::string const &driver) {
+        return findConfigDirs(getPathConfig(), driver);
+    }
+
+    LocationInfo findLocationInfoForDriver(std::string const &driver) {
+        auto json = getPathConfig();
+        LocationInfo ret;
+
+        auto config = findConfigDirs(json, driver);
+        if (config.valid) {
+            ret.configFound = true;
+            ret.rootConfigDir = config.rootConfigDir;
+            ret.driverConfigDir = config.driverConfigDir;
         }
-
-#ifdef VIVELOADER_VERBOSE
-        std::cout << "Path line is: " << pathLine << std::endl;
-#endif
-        auto prefixLoc = pathLine.find(LINE_PREFIX);
-        auto sub = pathLine.substr(std::string(LINE_PREFIX).size() + prefixLoc);
-#ifdef VIVELOADER_VERBOSE
-        std::cout << "substring is: " << sub << std::endl;
-#endif
-        ret.rootConfigDir = sub;
-        ret.driverConfigDir = sub + PATH_SEP + driver;
-
-        if (exists(path{ret.rootConfigDir})) {
-#ifdef VIVELOADER_VERBOSE
-            std::cout << "root config dir exists" << std::endl;
-#endif
-            ret.valid = true;
+        auto driverLoc = findDriver(json, driver);
+        if (driverLoc.found) {
+            ret.driverFound = true;
+            ret.steamVrRoot = driverLoc.steamVrRoot;
+            ret.driverRoot = driverLoc.driverRoot;
+            ret.driverName = driverLoc.driverName;
+            ret.driverFile = driverLoc.driverFile;
         }
-
+        ret.found = (driverLoc.found && config.valid);
         return ret;
     }
 

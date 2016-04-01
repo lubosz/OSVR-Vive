@@ -27,7 +27,6 @@ These may be useful in keeping track of upstream changes to the lighthouse drive
 This plugin: Licensed under the Apache License, Version 2.0.
 
 Vendored projects:
-- `boost-process` (incubator/under review) - Boost Software License 1.0
 - Valve SteamVR `openvr` (specifically `openvr_driver` headers) - MIT license.
 
-Note: At runtime, this plugin dynamically loads the Lighthouse SteamVR plugin distributed with SteamVR, runs the `vrpathreg` tool included with SteamVR and parses its output, as well as loads some SteamVR configuration settings (room calibration, etc) from JSON files.
+Note: At runtime, this plugin dynamically loads the Lighthouse SteamVR plugin distributed with SteamVR, as well as loads some SteamVR configuration settings (room calibration, etc) from JSON files.
