@@ -160,27 +160,6 @@ namespace vive {
     }
 #endif
 
-#if 0
-#if defined(OSVR_WINDOWS)
-    inline std::vector<std::string> getSteamVRRoots() {
-        /// @todo make this better - there's Windows API for that.
-        return std::vector<std::string>{
-            std::string{"C:\\Program Files\\Steam\\steamapps\\common\\SteamVR"},
-            std::string{
-                "C:\\Program Files (x86)\\Steam\\steamapps\\common\\SteamVR"}};
-    }
-#elif defined(OSVR_MACOSX)
-    inline std::vector<std::string> getSteamVRRoots() {
-#error "implementation not complete"
-    }
-#elif defined(OSVR_LINUX)
-
-    inline std::vector<std::string> getSteamVRRoots() {
-#error "implementation not complete"
-    }
-#endif
-#endif
-
     inline std::vector<std::string> getSteamVRRoots(Json::Value const &json) {
         std::vector<std::string> ret;
         auto &runtimes = json["runtime"];
