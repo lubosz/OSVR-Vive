@@ -142,6 +142,9 @@ namespace vive {
 #endif
 
       private:
+        /// called from tracker thread, handles locking.
+        void recordBaseStationSerial(const char * serial);
+
         /// Gets a driver pointer - may not be activated, since if it's not
         /// handled by the vive object, we'll go back to the server tracked
         /// driver provider and ask there. The second return value is whether it
@@ -201,6 +204,13 @@ namespace vive {
         QuickProcessingDeque<ButtonReport> m_buttonReports;
         QuickProcessingDeque<AnalogReport> m_analogReports;
         QuickProcessingDeque<NewDeviceReport> m_newDevices;
+        /// @}
+
+        bool m_gotBaseStation = false;
+        /// @name Base station serials (mutex controlled)
+        /// @{
+        std::mutex m_baseStationMutex;
+        std::vector<std::string> m_baseStationSerials;
         /// @}
 
         /// @name Main-thread only

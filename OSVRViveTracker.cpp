@@ -143,11 +143,18 @@ namespace vive {
             auto dev = m_vive->serverDevProvider().FindTrackedDeviceDriver(
                 serialNum, vr::ITrackedDeviceServerDriver_Version);
             if (!dev) {
-                /// The only devices we can't look up by serial number seem
-                /// to be the lighthouse base stations.
-                std::cout << PREFIX << "Tracked object " << serialNum
-                          << " presumably a Lighthouse base station"
-                          << std::endl;
+                /// The only devices we usually can't look up by serial number
+                /// seem to be the lighthouse base stations.
+                if (serialNum[0] == 'L' && serialNum[1] == 'H' &&
+                    serialNum[2] == 'B') {
+                    /// This is one for sure.
+                    std::cout << PREFIX << "Tracked object " << serialNum
+                              << " is a Lighthouse base station" << std::endl;
+                    recordBaseStationSerial(serialNum);
+                    return true;
+                }
+                std::cout << PREFIX << "Unrecognized tracked object "
+                          << serialNum << std::endl;
                 return false;
             }
             auto ret = activateDevice(dev);
@@ -249,6 +256,25 @@ namespace vive {
         }
         m_analogReports.clearWorkItems();
 
+        /// Try guessing the universe if we don't have an HMD to actually
+        /// provide it.
+        if (0 == m_universeId && !m_vive->devices().hasDeviceAt(HMD_SENSOR) &&
+            m_gotBaseStation) {
+            std::vector<std::string> baseStations;
+            {
+                std::lock_guard<std::mutex> lock(m_baseStationMutex);
+                baseStations = m_baseStationSerials;
+            }
+
+            auto id = m_vive->chaperone().guessUniverseIdFromBaseStations(
+                baseStations);
+            if (0 != id) {
+                std::cout << PREFIX << "No HMD attached, but guessed universe "
+                                       "from sighted base stations..."
+                          << std::endl;
+                handleUniverseChange(id);
+            }
+        }
         return OSVR_RETURN_SUCCESS;
     }
 
@@ -288,6 +314,14 @@ namespace vive {
         /// This still may be a controller, if somehow there are more than
         /// 2...
         return devs.addAndActivateDevice(dev);
+    }
+
+    void ViveDriverHost::recordBaseStationSerial(const char *serial) {
+        {
+            std::lock_guard<std::mutex> lock(m_baseStationMutex);
+            m_baseStationSerials.emplace_back(serial);
+        }
+        m_gotBaseStation = true;
     }
 
     void ViveDriverHost::submitTrackingReport(uint32_t unWhichDevice,

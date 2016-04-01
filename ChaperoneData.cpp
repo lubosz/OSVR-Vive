@@ -138,9 +138,13 @@ namespace vive {
 
     using UniverseDataMap =
         std::map<std::uint64_t, ChaperoneData::UniverseData>;
+
+    using UniverseBaseSerials = std::vector<
+        std::pair<std::uint64_t, ChaperoneData::BaseStationSerials>>;
     struct ChaperoneData::Impl {
         Json::Value chaperoneInfo;
         UniverseDataMap universes;
+        UniverseBaseSerials baseSerials;
     };
 
     void loadJsonIntoUniverseData(Json::Value const &obj,
@@ -240,11 +244,22 @@ namespace vive {
             }
             /// Convert universe ID (64-bit int) from string, in JSON, to an int
             /// again.
-            std::uint64_t id;
+            UniverseId id;
             std::istringstream is(univIdString);
             is >> id;
             /// Add the universe data in.
             impl_->universes.insert(std::make_pair(id, data));
+
+            BaseStationSerials serials;
+            for (auto const &tracker : univ["trackers"]) {
+                auto &serial = tracker["serial"];
+                if (serial.isString()) {
+                    serials.push_back(serial.asString());
+                }
+            }
+
+            /// Add the serial data in.
+            impl_->baseSerials.emplace_back(id, std::move(serials));
         }
     }
 
@@ -252,7 +267,7 @@ namespace vive {
 
     bool ChaperoneData::valid() const { return static_cast<bool>(impl_); }
 
-    bool ChaperoneData::knowUniverseId(std::uint64_t universe) const {
+    bool ChaperoneData::knowUniverseId(UniverseId universe) const {
         if (0 == universe) {
             return false;
         }
@@ -260,7 +275,7 @@ namespace vive {
     }
 
     ChaperoneData::UniverseData
-    ChaperoneData::getDataForUniverse(std::uint64_t universe) const {
+    ChaperoneData::getDataForUniverse(UniverseId universe) const {
         auto it = impl_->universes.find(universe);
         if (it == end(impl_->universes)) {
             return UniverseData();
@@ -270,6 +285,57 @@ namespace vive {
 
     std::size_t ChaperoneData::getNumberOfKnownUniverses() const {
         return impl_->universes.size();
+    }
+
+    ChaperoneData::UniverseId ChaperoneData::guessUniverseIdFromBaseStations(
+        BaseStationSerials const &bases) {
+        auto providedSize = bases.size();
+        UniverseId ret = 0;
+        using UniverseRank = std::pair<float, UniverseId>;
+        /// Compare function for heap.
+        auto compare = [](UniverseRank const &a, UniverseRank const &b) {
+            return a.first < b.first;
+        };
+
+        /// Will contain heap of potential universes and their value (a fraction
+        /// of their base stations and provided base stations that were included
+        /// in the base station list provided to the function)
+        std::vector<UniverseRank> potentialUniverses;
+        auto push = [&](float value, UniverseId id) {
+            potentialUniverses.emplace_back(value, id);
+            std::push_heap(begin(potentialUniverses), end(potentialUniverses),
+                           compare);
+        };
+
+        for (auto &univBaseSerial : impl_->baseSerials) {
+            auto const &baseSerials = univBaseSerial.second;
+            std::size_t hits = 0;
+            auto b = begin(baseSerials);
+            auto e = end(baseSerials);
+            /// Count the number of entries that we were given that are also in
+            /// this universe's list.
+            auto found = std::count_if(begin(bases), end(bases),
+                                       [&](std::string const &needle) {
+                                           return std::find(b, e, needle) != e;
+                                       });
+            if (found > 0) {
+                /// This is meant to combine the influence of "found" in both
+                /// providedSize and universe size, and the +1 in the
+                /// denominator is to avoid division by zero.
+                auto weight = 2.f * static_cast<float>(found) /
+                              (baseSerials.size() + providedSize + 1);
+#if 0
+                std::cout << "Guessing produced weight of " << weight << " for "
+                          << univBaseSerial.first << std::endl;
+#endif
+                push(weight, univBaseSerial.first);
+            }
+        }
+        if (!potentialUniverses.empty()) {
+            /// it's a heap, so the best one is always on top.
+            return potentialUniverses.front().second;
+        }
+        return ret;
     }
 
     void ChaperoneData::errorOut_(std::string const &message) {

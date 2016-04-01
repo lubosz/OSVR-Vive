@@ -36,6 +36,7 @@
 #include <cstdint>
 #include <memory>
 #include <string>
+#include <vector>
 
 namespace osvr {
 namespace vive {
@@ -45,6 +46,7 @@ namespace vive {
     /// etc. loaded from the chaperone_info file.
     class ChaperoneData {
       public:
+        using BaseStationSerials = std::vector<std::string>;
         struct UniverseData {
             CalibrationType type = CalibrationType::Standing;
             std::array<double, 3> translation;
@@ -53,6 +55,8 @@ namespace vive {
 
         explicit ChaperoneData(std::string const &steamConfigDir);
         ~ChaperoneData();
+
+        using UniverseId = std::uint64_t;
 
         bool valid() const;
         explicit operator bool() const { return valid(); }
@@ -67,12 +71,16 @@ namespace vive {
 
         /// Do we have data for this universe ID?
         /// Note that 0 is a dummy/always invalid universe.
-        bool knowUniverseId(std::uint64_t universe) const;
+        bool knowUniverseId(UniverseId universe) const;
 
-        UniverseData getDataForUniverse(std::uint64_t universe) const;
+        UniverseData getDataForUniverse(UniverseId universe) const;
 
         /// Get the number of known and handled universes;
         std::size_t getNumberOfKnownUniverses() const;
+
+        /// If it returns 0, it couldn't.
+        UniverseId
+        guessUniverseIdFromBaseStations(BaseStationSerials const &bases);
 
       private:
         void errorOut_(std::string const &message);
