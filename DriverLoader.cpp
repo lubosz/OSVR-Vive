@@ -135,15 +135,19 @@ namespace vive {
 
     void DriverLoader::reset() {
         if (cleanup_) {
+#if 0
             std::cout << "osvr::vive::DriverLoader::reset() - cleaning "
                          "up main provider"
                       << std::endl;
+#endif
             cleanup_();
             cleanup_ = std::function<void()>{};
         }
         if (impl_) {
+#if 0
             std::cout << "osvr::vive::DriverLoader::reset() - unloading driver"
                       << std::endl;
+#endif
             impl_.reset();
         }
     }
