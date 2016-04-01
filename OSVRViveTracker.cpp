@@ -26,7 +26,7 @@
 #include "OSVRViveTracker.h"
 #include "DriverWrapper.h"
 #include "GetComponent.h"
-#include "PropertyHelper.h"
+#include "ServerPropertyHelper.h"
 
 // Generated JSON header file
 #include "com_osvr_Vive_json.h"

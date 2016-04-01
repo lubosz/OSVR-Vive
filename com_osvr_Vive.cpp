@@ -23,7 +23,7 @@
 #include "DriverWrapper.h"
 #include "InterfaceTraits.h"
 #include "OSVRViveTracker.h"
-#include "PropertyHelper.h"
+#include "ServerPropertyHelper.h"
 #include <osvr/PluginKit/PluginKit.h>
 #include <osvr/Util/PlatformConfig.h>
 

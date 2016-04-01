@@ -25,8 +25,9 @@
 #ifndef INCLUDED_PropertyHelper_h_GUID_08BEA00F_2E0C_4FA5_DF5B_31BE33EF27A3
 #define INCLUDED_PropertyHelper_h_GUID_08BEA00F_2E0C_4FA5_DF5B_31BE33EF27A3
 
+#include <cstddef>
+
 #include "PropertyTraits.h"
-#include <openvr_driver.h>
 
 // Standard includes
 #include <assert.h>
@@ -38,47 +39,7 @@
 
 namespace osvr {
 namespace vive {
-    std::pair<std::string, vr::ETrackedPropertyError> inline getStringProperty(
-        vr::ITrackedDeviceServerDriver *dev, vr::ETrackedDeviceProperty prop) {
-        assert(dev != nullptr &&
-               "Tried to get a string property from a null device "
-               "pointer.");
-        static const auto INITIAL_BUFFER_SIZE = vr::k_unTrackingStringSize;
-        /// Start with a buffer of k_unTrackingStringSize as suggested.
-        std::vector<char> buf(INITIAL_BUFFER_SIZE, '\0');
-        vr::ETrackedPropertyError err;
-        auto ret = dev->GetStringTrackedDeviceProperty(
-            prop, buf.data(), static_cast<uint32_t>(buf.size()), &err);
-        if (0 == ret) {
-            // property not available
-            return std::make_pair(std::string{}, err);
-        }
 
-        if (ret > buf.size()) {
-            std::cout << "[getStringProperty] Got an initial return value "
-                         "larger than the buffer size: ret = "
-                      << ret << ", buf.size() = " << buf.size() << std::endl;
-        }
-        if (vr::TrackedProp_BufferTooSmall == err) {
-            // first buffer was too small, but now we know how big it should be,
-            // per the docs.
-            /// @todo remove this debug print
-            std::cout << "[getStringProperty] Initial buffer size: "
-                      << buf.size() << ", return value: " << ret << std::endl;
-            buf.resize(ret + 1, '\0');
-            ret = dev->GetStringTrackedDeviceProperty(
-                prop, buf.data(), static_cast<uint32_t>(buf.size()), &err);
-        }
-
-        if (ret > buf.size()) {
-            std::cout << "[getStringProperty] THIS SHOULDN'T HAPPEN: Got a "
-                         "return value larger than the buffer size: ret = "
-                      << ret << ", buf.size() = " << buf.size() << std::endl;
-
-            return std::make_pair(std::string{}, err);
-        }
-        return std::make_pair(std::string{buf.data()}, err);
-    }
     namespace detail {
         template <typename PropertyType>
         using PropertyGetterReturn =
@@ -108,49 +69,101 @@ namespace vive {
         template <typename EnumType> struct PropertyGetter;
 
         template <> struct PropertyGetter<bool> {
+            template <typename T, typename... Args>
             static PropertyGetterReturn<bool>
-            get(vr::ITrackedDeviceServerDriver *dev,
-                vr::ETrackedDeviceProperty prop) {
+            get(T *dev, vr::ETrackedDeviceProperty prop, Args... args) {
                 vr::ETrackedPropertyError err;
-                bool val = dev->GetBoolTrackedDeviceProperty(prop, &err);
+                bool val =
+                    dev->GetBoolTrackedDeviceProperty(args..., prop, &err);
                 return std::make_pair(val, err);
             }
         };
+
         template <> struct PropertyGetter<float> {
+            template <typename T, typename... Args>
             static PropertyGetterReturn<float>
-            get(vr::ITrackedDeviceServerDriver *dev,
-                vr::ETrackedDeviceProperty prop) {
+            get(T *dev, vr::ETrackedDeviceProperty prop, Args... args) {
                 vr::ETrackedPropertyError err;
-                float val = dev->GetFloatTrackedDeviceProperty(prop, &err);
+                float val = dev->GetFloatTrackedDeviceProperty(
+                    std::forward<Args>(args)..., prop, &err);
                 return std::make_pair(val, err);
             }
         };
+
         template <> struct PropertyGetter<int32_t> {
+            template <typename T, typename... Args>
             static PropertyGetterReturn<int32_t>
-            get(vr::ITrackedDeviceServerDriver *dev,
-                vr::ETrackedDeviceProperty prop) {
+            get(T *dev, vr::ETrackedDeviceProperty prop, Args... args) {
                 vr::ETrackedPropertyError err;
-                int32_t val = dev->GetInt32TrackedDeviceProperty(prop, &err);
+                int32_t val =
+                    dev->GetInt32TrackedDeviceProperty(args..., prop, &err);
                 return std::make_pair(val, err);
             }
         };
+
         template <> struct PropertyGetter<vr::HmdMatrix34_t> {
+            template <typename T, typename... Args>
             static PropertyGetterReturn<vr::HmdMatrix34_t>
-            get(vr::ITrackedDeviceServerDriver *dev,
-                vr::ETrackedDeviceProperty prop) {
+            get(T *dev, vr::ETrackedDeviceProperty prop, Args... args) {
                 vr::ETrackedPropertyError err;
                 vr::HmdMatrix34_t val =
-                    dev->GetMatrix34TrackedDeviceProperty(prop, &err);
+                    dev->GetMatrix34TrackedDeviceProperty(args..., prop, &err);
                 return std::make_pair(val, err);
             }
         };
+
         template <> struct PropertyGetter<std::string> {
+            template <typename T, typename... Args>
             static PropertyGetterReturn<std::string>
-            get(vr::ITrackedDeviceServerDriver *dev,
-                vr::ETrackedDeviceProperty prop) {
-                return getStringProperty(dev, prop);
+            get(T *dev, vr::ETrackedDeviceProperty prop, Args... args) {
+
+                assert(dev != nullptr &&
+                       "Tried to get a string property from a null device "
+                       "pointer.");
+                static const auto INITIAL_BUFFER_SIZE =
+                    vr::k_unTrackingStringSize;
+                /// Start with a buffer of k_unTrackingStringSize as suggested.
+                std::vector<char> buf(INITIAL_BUFFER_SIZE, '\0');
+                vr::ETrackedPropertyError err;
+                auto ret = dev->GetStringTrackedDeviceProperty(
+                    args..., prop, buf.data(),
+                    static_cast<uint32_t>(buf.size()), &err);
+                if (0 == ret) {
+                    // property not available
+                    return std::make_pair(std::string{}, err);
+                }
+
+                if (ret > buf.size()) {
+                    std::cout
+                        << "[getStringProperty] Got an initial return value "
+                           "larger than the buffer size: ret = "
+                        << ret << ", buf.size() = " << buf.size() << std::endl;
+                }
+                if (vr::TrackedProp_BufferTooSmall == err) {
+                    // first buffer was too small, but now we know how big it
+                    // should be, per the docs.
+                    /// @todo remove this debug print
+                    std::cout << "[getStringProperty] Initial buffer size: "
+                              << buf.size() << ", return value: " << ret
+                              << std::endl;
+                    buf.resize(ret + 1, '\0');
+                    ret = dev->GetStringTrackedDeviceProperty(
+                        args..., prop, buf.data(),
+                        static_cast<uint32_t>(buf.size()), &err);
+                }
+
+                if (ret > buf.size()) {
+                    std::cout
+                        << "[getStringProperty] THIS SHOULDN'T HAPPEN: Got a "
+                           "return value larger than the buffer size: ret = "
+                        << ret << ", buf.size() = " << buf.size() << std::endl;
+
+                    return std::make_pair(std::string{}, err);
+                }
+                return std::make_pair(std::string{buf.data()}, err);
             }
         };
+
         template <> struct PropertyGetter<uint64_t> {
             template <typename T, typename... Args>
             static PropertyGetterReturn<uint64_t>
@@ -161,6 +174,7 @@ namespace vive {
                 return std::make_pair(val, err);
             }
         };
+
         template <std::size_t EnumVal>
         using PropertyGetterFromSizeT = PropertyGetter<PropertyType<EnumVal>>;
 
@@ -169,32 +183,61 @@ namespace vive {
             PropertyGetterFromSizeT<EnumClassToSizeT<EnumVal>::value>;
     } // namespace detail
 
-    template <std::size_t EnumVal>
-    inline detail::EnumGetterReturn<EnumVal>
-    getProperty(vr::ITrackedDeviceServerDriver *dev) {
-        return detail::PropertyGetterFromSizeT<EnumVal>::get(
-            dev, detail::castToProperty(EnumVal));
-    }
-    template <Props EnumVal>
-    inline detail::EnumClassGetterReturn<EnumVal>
-    getProperty(vr::ITrackedDeviceServerDriver *dev) {
-        return detail::PropertyGetterFromEnumClass<EnumVal>::get(
-            dev, detail::castToProperty(EnumVal));
-    }
+    namespace generic {
+        /// Get a property - pass the vr::Prop_.... as the template parameter,
+        /// and the object (vr::ITrackedDeviceServerDriver *, vr::IVRSystem*)
+        /// and any additional parameters required (vr::TrackedDeviceIndex_t
+        /// for IVRSystem, for instance), and get back a pair with your result,
+        /// correctly typed, and your error code.
+        template <std::size_t EnumVal, typename Obj, typename... Args>
+        inline detail::EnumGetterReturn<EnumVal> getProperty(Obj *obj,
+                                                             Args... args) {
+            return detail::PropertyGetterFromSizeT<EnumVal>::get(
+                obj, detail::castToProperty(EnumVal), args...);
+        }
 
-    template <typename T>
-    inline detail::PropertyGetterReturn<T>
-    getProperty(vr::ITrackedDeviceServerDriver *dev,
-                vr::ETrackedDeviceProperty prop) {
-        return detail::PropertyGetter<T>::get(dev, prop);
-    }
+        /// @overload
+        ///
+        /// Get a property - pass the Props:: enum class shortened name as the
+        /// template parameter, and the object (vr::ITrackedDeviceServerDriver
+        /// *, vr::IVRSystem*) and any additional parameters required
+        /// (vr::TrackedDeviceIndex_t for IVRSystem, for instance), and get back
+        /// a pair with your result, correctly typed, and your error code.
+        template <Props EnumVal, typename Obj, typename... Args>
+        inline detail::EnumClassGetterReturn<EnumVal>
+        getProperty(Obj *obj, Args... args) {
+            return detail::PropertyGetterFromEnumClass<EnumVal>::get(
+                obj, detail::castToProperty(EnumVal), args...);
+        }
 
-    template <typename T>
-    inline detail::PropertyGetterReturn<T>
-    getProperty(vr::ITrackedDeviceServerDriver *dev, Props prop) {
-        return detail::PropertyGetter<T>::get(dev,
-                                              detail::castToProperty(prop));
-    }
+        /// Get a property when you only have the type at compile time, not the
+        /// enum itself (not as asfe as getProperty())
+        ///
+        /// Pass the type you'd like to receive as the template parameter (one
+        /// of std::string, bool, int32_t, uint64_t, and vr::HmdMatrix34_t), and
+        /// pass the and the object (vr::ITrackedDeviceServerDriver *,
+        /// vr::IVRSystem*), the vr::Prop_.... enum, and any additional
+        /// parameters required (vr::TrackedDeviceIndex_t for IVRSystem, for
+        /// instance), and get back a pair with your result as requested, and
+        /// your error code.
+        template <typename T, typename Obj, typename... Args>
+        inline detail::PropertyGetterReturn<T>
+        getPropertyOfType(Obj *obj, vr::ETrackedDeviceProperty prop,
+                          Args... args) {
+            return detail::PropertyGetter<T>::get(obj, prop, args...);
+        }
+
+        /// @overload
+        ///
+        /// Takes a Props:: enum class shortened name instead of a vr::Prop_...
+        /// enum.
+        template <typename T, typename Obj, typename... Args>
+        inline detail::PropertyGetterReturn<T>
+        getPropertyOfType(Obj *obj, Props prop, Args... args) {
+            return detail::PropertyGetter<T>::get(
+                obj, detail::castToProperty(prop), args...);
+        }
+    } // namespace generic
 } // namespace vive
 } // namespace osvr
 

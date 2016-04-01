@@ -29,8 +29,8 @@
 #include "DisplayDescriptor.h"
 #include "DriverWrapper.h"
 #include "GetComponent.h"
-#include "PropertyHelper.h"
 #include "RGBPoints.h"
+#include "ServerPropertyHelper.h"
 
 #include "viveDisplayInput.h"
 
@@ -76,8 +76,8 @@ void updateCenterOfProjection(DisplayDescriptor &descriptor,
                                                  Props::LensCenterLeftV},
                        CenterOfProjectionIndices{1, Props::LensCenterRightU,
                                                  Props::LensCenterRightV}}) {
-        auto x = getProperty<float>(dev, get<1>(data)).first;
-        auto y = getProperty<float>(dev, get<2>(data)).first;
+        auto x = getPropertyOfType<float>(dev, get<1>(data)).first;
+        auto y = getPropertyOfType<float>(dev, get<2>(data)).first;
 
         g_descriptor->updateCenterOfProjection(get<0>(data), {{x, y}});
     }

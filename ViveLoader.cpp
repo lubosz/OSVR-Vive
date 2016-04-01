@@ -26,7 +26,7 @@
 #include "ChaperoneData.h"
 #include "DriverWrapper.h"
 #include "GetComponent.h"
-#include "PropertyHelper.h"
+#include "ServerPropertyHelper.h"
 
 // Library/third-party includes
 #include <openvr_driver.h>
