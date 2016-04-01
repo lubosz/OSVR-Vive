@@ -32,6 +32,7 @@
 #include "com_osvr_Vive_json.h"
 
 // Library/third-party includes
+#include <boost/assert.hpp>
 #include <osvr/Util/EigenCoreGeometry.h>
 #include <osvr/Util/EigenInterop.h>
 
@@ -444,22 +445,102 @@ namespace vive {
 
     void
     ViveDriverHost::TrackedDevicePropertiesChanged(uint32_t unWhichDevice) {
+        bool checkUniverse = false;
         if (HMD_SENSOR == unWhichDevice) {
-            vr::ETrackedPropertyError err;
-            auto universe = m_vive->devices()
-                                .getDevice(HMD_SENSOR)
-                                .GetUint64TrackedDeviceProperty(
-                                    vr::Prop_CurrentUniverseId_Uint64, &err);
-            if (vr::TrackedProp_Success != err) {
-                /// set to invalid universe
+            checkUniverse = true;
+        } else if (!m_vive->devices().hasDeviceAt(HMD_SENSOR)) {
+            checkUniverse = true;
+        }
+
+        if (!checkUniverse) {
+            return;
+        }
+        getUniverseUpdateFromDevice(unWhichDevice);
+    }
+
+    std::pair<vr::ITrackedDeviceServerDriver *, bool>
+    ViveDriverHost::getDriverPtr(uint32_t unWhichDevice) {
+        return std::pair<vr::ITrackedDeviceServerDriver *, bool>();
+        if (m_vive->devices().hasDeviceAt(unWhichDevice)) {
+            return std::make_pair(&(m_vive->devices().getDevice(unWhichDevice)),
+                                  true);
+        }
+        return std::make_pair(
+            m_vive->serverDevProvider().GetTrackedDeviceDriver(
+                unWhichDevice, vr::ITrackedDeviceServerDriver_Version),
+            false);
+    }
+
+    void ViveDriverHost::getUniverseUpdateFromDevice(uint32_t unWhichDevice) {
+        auto devRet = getDriverPtr(unWhichDevice);
+        auto dev = devRet.first;
+        if (!dev) {
+            // couldn't get the device
+            return;
+        }
+
+        vr::ETrackedPropertyError err;
+        auto universe = dev->GetUint64TrackedDeviceProperty(
+            vr::Prop_CurrentUniverseId_Uint64, &err);
+        switch (err) {
+        case vr::TrackedProp_WrongDataType:
+        case vr::TrackedProp_StringExceedsMaximumLength:
+        case vr::TrackedProp_BufferTooSmall:
+        case vr::TrackedProp_UnknownProperty:
+        case vr::TrackedProp_CouldNotContactServer:
+            /// should not happen
+            BOOST_ASSERT_MSG(false, "These property errors should not happen "
+                                    "when trying to retrieve the universe ID.");
+            return;
+            break;
+        case vr::TrackedProp_Success:
+            /// Very good, let's carry on.
+            break;
+        case vr::TrackedProp_WrongDeviceClass:
+            /// OK, that's realistic. We'll just not update the universe based
+            /// on it.
+            std::cout << "error: TrackedProp_WrongDeviceClass when getting "
+                         "universe ID from "
+                      << unWhichDevice << std::endl;
+            return;
+            break;
+        case vr::TrackedProp_ValueNotProvidedByDevice:
+            /// OK, that's realistic. We'll just not update the universe based
+            /// on it.
+            std::cout << "error: TrackedProp_ValueNotProvidedByDevice when "
+                         "getting universe ID from "
+                      << unWhichDevice << std::endl;
+            return;
+            break;
+        case vr::TrackedProp_InvalidDevice:
+            /// A bit strange that we got a message about it, but in any case,
+            /// we can ignore it then.
+            return;
+            break;
+        case vr::TrackedProp_NotYetAvailable:
+            if (HMD_SENSOR == unWhichDevice) {
+                /// Well, here we want to set the universe to 0.
                 universe = 0;
+            } else {
+                std::cout << "error: TrackedProp_NotYetAvailable when getting "
+                             "universe ID from "
+                          << unWhichDevice << std::endl;
             }
-            /// Check our thread-local copy of the universe ID before submitting
-            /// the message.
-            if (m_trackingThreadUniverseId != universe) {
-                m_trackingThreadUniverseId = universe;
-                submitUniverseChange(universe);
-            }
+            break;
+        default:
+            std::cout << "Got unrecognized error " << err
+                      << " when getting universe ID from " << unWhichDevice
+                      << std::endl;
+            break;
+        }
+
+        /// If we're still around at this point, then universe contains
+        /// something useful.
+        /// Check our thread-local copy of the universe ID before submitting
+        /// the message.
+        if (m_trackingThreadUniverseId != universe) {
+            m_trackingThreadUniverseId = universe;
+            submitUniverseChange(universe);
         }
     }
 

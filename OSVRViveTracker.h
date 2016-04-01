@@ -142,6 +142,15 @@ namespace vive {
 #endif
 
       private:
+        /// Gets a driver pointer - may not be activated, since if it's not
+        /// handled by the vive object, we'll go back to the server tracked
+        /// driver provider and ask there. The second return value is whether it
+        /// is activated.
+        std::pair<vr::ITrackedDeviceServerDriver *, bool>
+        getDriverPtr(uint32_t unWhichDevice);
+
+        void getUniverseUpdateFromDevice(uint32_t unWhichDevice);
+
         /// joint logic for TrackedDeviceButtonPressed and
         /// TrackedDeviceButtonUnpressed
         void handleTrackedButtonPressUnpress(uint32_t unWhichDevice,
