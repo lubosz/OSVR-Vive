@@ -255,9 +255,9 @@ namespace vive {
     std::pair<bool, std::uint32_t>
     ViveDriverHost::activateDevice(vr::ITrackedDeviceServerDriver *dev) {
         auto ret = activateDeviceImpl(dev);
-        auto mfrProp = getStringProperty(dev, vr::Prop_ManufacturerName_String);
-        auto modelProp = getStringProperty(dev, vr::Prop_ModelNumber_String);
-        auto serialProp = getStringProperty(dev, vr::Prop_SerialNumber_String);
+        auto mfrProp = getProperty<Props::ManufacturerName>(dev);
+        auto modelProp = getProperty<Props::ModelNumber>(dev);
+        auto serialProp = getProperty<Props::SerialNumber>(dev);
         std::cout << PREFIX;
         if (ret.first) {
             std::cout << "Assigned sensor ID " << ret.second << " to ";
@@ -518,8 +518,8 @@ namespace vive {
         }
 
         vr::ETrackedPropertyError err;
-        auto universe = dev->GetUint64TrackedDeviceProperty(
-            vr::Prop_CurrentUniverseId_Uint64, &err);
+        uint64_t universe = 0;
+        std::tie(universe, err) = getProperty<Props::CurrentUniverseId>(dev);
         switch (err) {
         case vr::TrackedProp_WrongDataType:
         case vr::TrackedProp_StringExceedsMaximumLength:

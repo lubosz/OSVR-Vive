@@ -70,17 +70,14 @@ void updateCenterOfProjection(DisplayDescriptor &descriptor,
                               vr::ITrackedDeviceServerDriver *dev) {
     /// Get the two eye/lens center of projections.
     using CenterOfProjectionIndices =
-        std::tuple<std::size_t, vr::ETrackedDeviceProperty,
-                   vr::ETrackedDeviceProperty>;
-    for (auto &data :
-         {CenterOfProjectionIndices{0, vr::Prop_LensCenterLeftU_Float,
-                                    vr::Prop_LensCenterLeftV_Float},
-          CenterOfProjectionIndices{1, vr::Prop_LensCenterRightU_Float,
-                                    vr::Prop_LensCenterRightV_Float}}) {
-        using std::get;
-        ETrackedPropertyError err;
-        auto x = dev->GetFloatTrackedDeviceProperty(get<1>(data), &err);
-        auto y = dev->GetFloatTrackedDeviceProperty(get<2>(data), &err);
+        std::tuple<std::size_t, osvr::vive::Props, osvr::vive::Props>;
+    using std::get;
+    for (auto &data : {CenterOfProjectionIndices{0, Props::LensCenterLeftU,
+                                                 Props::LensCenterLeftV},
+                       CenterOfProjectionIndices{1, Props::LensCenterRightU,
+                                                 Props::LensCenterRightV}}) {
+        auto x = getProperty<float>(dev, get<1>(data)).first;
+        auto y = getProperty<float>(dev, get<2>(data)).first;
 
         g_descriptor->updateCenterOfProjection(get<0>(data), {{x, y}});
     }

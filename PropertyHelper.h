@@ -25,16 +25,14 @@
 #ifndef INCLUDED_PropertyHelper_h_GUID_08BEA00F_2E0C_4FA5_DF5B_31BE33EF27A3
 #define INCLUDED_PropertyHelper_h_GUID_08BEA00F_2E0C_4FA5_DF5B_31BE33EF27A3
 
-// Internal Includes
-// - none
-
-// Library/third-party includes
+#include "PropertyTraits.h"
 #include <openvr_driver.h>
 
 // Standard includes
 #include <assert.h>
 #include <iostream>
 #include <string>
+#include <type_traits>
 #include <utility>
 #include <vector>
 
@@ -81,7 +79,122 @@ namespace vive {
         }
         return std::make_pair(std::string{buf.data()}, err);
     }
+    namespace detail {
+        template <typename PropertyType>
+        using PropertyGetterReturn =
+            std::pair<PropertyType, vr::ETrackedPropertyError>;
 
+        template <std::size_t EnumVal>
+        using EnumGetterReturn = PropertyGetterReturn<PropertyType<EnumVal>>;
+
+        template <Props EnumVal>
+        struct EnumClassToSizeT
+            : std::integral_constant<std::size_t,
+                                     static_cast<std::size_t>(
+                                         static_cast<int>(EnumVal))> {};
+
+        template <Props EnumVal>
+        using EnumClassGetterReturn =
+            EnumGetterReturn<EnumClassToSizeT<EnumVal>::value>;
+
+        inline vr::ETrackedDeviceProperty castToProperty(std::size_t prop) {
+            return static_cast<vr::ETrackedDeviceProperty>(prop);
+        }
+        inline vr::ETrackedDeviceProperty castToProperty(Props val) {
+            return static_cast<vr::ETrackedDeviceProperty>(
+                static_cast<int>(val));
+        }
+
+        template <typename EnumType> struct PropertyGetter;
+
+        template <> struct PropertyGetter<bool> {
+            static PropertyGetterReturn<bool>
+            get(vr::ITrackedDeviceServerDriver *dev,
+                vr::ETrackedDeviceProperty prop) {
+                vr::ETrackedPropertyError err;
+                bool val = dev->GetBoolTrackedDeviceProperty(prop, &err);
+                return std::make_pair(val, err);
+            }
+        };
+        template <> struct PropertyGetter<float> {
+            static PropertyGetterReturn<float>
+            get(vr::ITrackedDeviceServerDriver *dev,
+                vr::ETrackedDeviceProperty prop) {
+                vr::ETrackedPropertyError err;
+                float val = dev->GetFloatTrackedDeviceProperty(prop, &err);
+                return std::make_pair(val, err);
+            }
+        };
+        template <> struct PropertyGetter<int32_t> {
+            static PropertyGetterReturn<int32_t>
+            get(vr::ITrackedDeviceServerDriver *dev,
+                vr::ETrackedDeviceProperty prop) {
+                vr::ETrackedPropertyError err;
+                int32_t val = dev->GetInt32TrackedDeviceProperty(prop, &err);
+                return std::make_pair(val, err);
+            }
+        };
+        template <> struct PropertyGetter<vr::HmdMatrix34_t> {
+            static PropertyGetterReturn<vr::HmdMatrix34_t>
+            get(vr::ITrackedDeviceServerDriver *dev,
+                vr::ETrackedDeviceProperty prop) {
+                vr::ETrackedPropertyError err;
+                vr::HmdMatrix34_t val =
+                    dev->GetMatrix34TrackedDeviceProperty(prop, &err);
+                return std::make_pair(val, err);
+            }
+        };
+        template <> struct PropertyGetter<std::string> {
+            static PropertyGetterReturn<std::string>
+            get(vr::ITrackedDeviceServerDriver *dev,
+                vr::ETrackedDeviceProperty prop) {
+                return getStringProperty(dev, prop);
+            }
+        };
+        template <> struct PropertyGetter<uint64_t> {
+            template <typename T, typename... Args>
+            static PropertyGetterReturn<uint64_t>
+            get(T *self, vr::ETrackedDeviceProperty prop, Args... args) {
+                vr::ETrackedPropertyError err;
+                uint64_t val =
+                    self->GetUint64TrackedDeviceProperty(args..., prop, &err);
+                return std::make_pair(val, err);
+            }
+        };
+        template <std::size_t EnumVal>
+        using PropertyGetterFromSizeT = PropertyGetter<PropertyType<EnumVal>>;
+
+        template <Props EnumVal>
+        using PropertyGetterFromEnumClass =
+            PropertyGetterFromSizeT<EnumClassToSizeT<EnumVal>::value>;
+    } // namespace detail
+
+    template <std::size_t EnumVal>
+    inline detail::EnumGetterReturn<EnumVal>
+    getProperty(vr::ITrackedDeviceServerDriver *dev) {
+        return detail::PropertyGetterFromSizeT<EnumVal>::get(
+            dev, detail::castToProperty(EnumVal));
+    }
+    template <Props EnumVal>
+    inline detail::EnumClassGetterReturn<EnumVal>
+    getProperty(vr::ITrackedDeviceServerDriver *dev) {
+        return detail::PropertyGetterFromEnumClass<EnumVal>::get(
+            dev, detail::castToProperty(EnumVal));
+    }
+
+    template <typename T>
+    inline detail::PropertyGetterReturn<T>
+    getProperty(vr::ITrackedDeviceServerDriver *dev,
+                vr::ETrackedDeviceProperty prop) {
+        return detail::PropertyGetter<T>::get(dev, prop);
+    }
+
+    template <typename T>
+    inline detail::PropertyGetterReturn<T>
+    getProperty(vr::ITrackedDeviceServerDriver *dev, Props prop) {
+        return detail::PropertyGetter<T>::get(dev,
+                                              detail::castToProperty(prop));
+    }
 } // namespace vive
 } // namespace osvr
 

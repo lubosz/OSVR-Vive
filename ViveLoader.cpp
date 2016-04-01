@@ -49,8 +49,10 @@ static void whatIsThisDevice(vr::ITrackedDeviceServerDriver *dev) {
         if (disp) {
             std::cout << PREFIX << "-- it's a display, too!" << std::endl;
             vr::ETrackedPropertyError err;
-            auto universe = dev->GetUint64TrackedDeviceProperty(
-                vr::Prop_CurrentUniverseId_Uint64, &err);
+            uint64_t universe = 0;
+            std::tie(universe, err) =
+                osvr::vive::getProperty<osvr::vive::Props::CurrentUniverseId>(
+                    dev);
             if (vr::TrackedProp_Success == err) {
                 std::cout << PREFIX << " -- In tracking universe " << universe
                           << std::endl;
@@ -110,13 +112,15 @@ void lookForUniverseData(osvr::vive::DriverWrapper &vive) {
             continue;
         }
         vr::ETrackedPropertyError err;
-        auto myUniverse = devPtr->GetUint64TrackedDeviceProperty(
-            vr::Prop_CurrentUniverseId_Uint64, &err);
+        uint64_t myUniverse = 0;
+        std::tie(myUniverse, err) =
+            osvr::vive::getProperty<osvr::vive::Props::CurrentUniverseId>(
+                devPtr);
         if (vr::TrackedProp_Success != err || myUniverse == 0) {
             continue;
         }
         auto model =
-            osvr::vive::getStringProperty(devPtr, vr::Prop_ModelNumber_String)
+            osvr::vive::getProperty<osvr::vive::Props::ModelNumber>(devPtr)
                 .first;
         std::cout << PREFIX << "Got a real universe (" << myUniverse
                   << ") from " << model << std::endl;

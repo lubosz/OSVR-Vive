@@ -1,0 +1,424 @@
+/** @file
+    @brief Header - partially generated from parsing openvr_api.json
+
+    @date 2016
+
+    @author
+    Sensics, Inc.
+    <http://sensics.com/osvr>
+*/
+
+/*
+Copyright 2016 Razer Inc.
+
+OpenVR input data:
+Copyright (c) 2015, Valve Corporation
+All rights reserved.
+
+Redistribution and use in source and binary forms, with or without modification,
+are permitted provided that the following conditions are met:
+
+1. Redistributions of source code must retain the above copyright notice, this
+list of conditions and the following disclaimer.
+
+2. Redistributions in binary form must reproduce the above copyright notice,
+this list of conditions and the following disclaimer in the documentation and/or
+other materials provided with the distribution.
+
+3. Neither the name of the copyright holder nor the names of its contributors
+may be used to endorse or promote products derived from this software without
+specific prior written permission.
+
+THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND
+ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
+WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
+DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR
+ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
+(INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
+LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON
+ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+(INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
+SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+*/
+
+#ifndef INCLUDED_PropertyTraits_h_GUID_6CC473E5_C8B9_46B7_237B_1E0C08E91076
+#define INCLUDED_PropertyTraits_h_GUID_6CC473E5_C8B9_46B7_237B_1E0C08E91076
+
+#ifndef _INCLUDE_VRTYPES_H
+#error                                                                         \
+    "Please include exactly one of openvr.h or openvr_driver.h before including this file"
+#endif
+
+#include <string>
+
+namespace osvr {
+namespace vive {
+    enum class Props {
+        TrackingSystemName = vr::Prop_TrackingSystemName_String,
+        ModelNumber = vr::Prop_ModelNumber_String,
+        SerialNumber = vr::Prop_SerialNumber_String,
+        RenderModelName = vr::Prop_RenderModelName_String,
+        WillDriftInYaw = vr::Prop_WillDriftInYaw_Bool,
+        ManufacturerName = vr::Prop_ManufacturerName_String,
+        TrackingFirmwareVersion = vr::Prop_TrackingFirmwareVersion_String,
+        // shortcut omitted due to ambiguity for Prop_HardwareRevision_String
+        AllWirelessDongleDescriptions =
+            vr::Prop_AllWirelessDongleDescriptions_String,
+        ConnectedWirelessDongle = vr::Prop_ConnectedWirelessDongle_String,
+        DeviceIsWireless = vr::Prop_DeviceIsWireless_Bool,
+        DeviceIsCharging = vr::Prop_DeviceIsCharging_Bool,
+        DeviceBatteryPercentage = vr::Prop_DeviceBatteryPercentage_Float,
+        StatusDisplayTransform = vr::Prop_StatusDisplayTransform_Matrix34,
+        Firmware_UpdateAvailable = vr::Prop_Firmware_UpdateAvailable_Bool,
+        Firmware_ManualUpdate = vr::Prop_Firmware_ManualUpdate_Bool,
+        Firmware_ManualUpdateURL = vr::Prop_Firmware_ManualUpdateURL_String,
+        // shortcut omitted due to ambiguity for Prop_HardwareRevision_Uint64
+        FirmwareVersion = vr::Prop_FirmwareVersion_Uint64,
+        FPGAVersion = vr::Prop_FPGAVersion_Uint64,
+        VRCVersion = vr::Prop_VRCVersion_Uint64,
+        RadioVersion = vr::Prop_RadioVersion_Uint64,
+        DongleVersion = vr::Prop_DongleVersion_Uint64,
+        BlockServerShutdown = vr::Prop_BlockServerShutdown_Bool,
+        CanUnifyCoordinateSystemWithHmd =
+            vr::Prop_CanUnifyCoordinateSystemWithHmd_Bool,
+        ContainsProximitySensor = vr::Prop_ContainsProximitySensor_Bool,
+        DeviceProvidesBatteryStatus = vr::Prop_DeviceProvidesBatteryStatus_Bool,
+        DeviceCanPowerOff = vr::Prop_DeviceCanPowerOff_Bool,
+        Firmware_ProgrammingTarget = vr::Prop_Firmware_ProgrammingTarget_String,
+        DeviceClass = vr::Prop_DeviceClass_Int32,
+        HasCamera = vr::Prop_HasCamera_Bool,
+        ReportsTimeSinceVSync = vr::Prop_ReportsTimeSinceVSync_Bool,
+        SecondsFromVsyncToPhotons = vr::Prop_SecondsFromVsyncToPhotons_Float,
+        DisplayFrequency = vr::Prop_DisplayFrequency_Float,
+        UserIpdMeters = vr::Prop_UserIpdMeters_Float,
+        CurrentUniverseId = vr::Prop_CurrentUniverseId_Uint64,
+        PreviousUniverseId = vr::Prop_PreviousUniverseId_Uint64,
+        DisplayFirmwareVersion = vr::Prop_DisplayFirmwareVersion_Uint64,
+        IsOnDesktop = vr::Prop_IsOnDesktop_Bool,
+        DisplayMCType = vr::Prop_DisplayMCType_Int32,
+        DisplayMCOffset = vr::Prop_DisplayMCOffset_Float,
+        DisplayMCScale = vr::Prop_DisplayMCScale_Float,
+        EdidVendorID = vr::Prop_EdidVendorID_Int32,
+        DisplayMCImageLeft = vr::Prop_DisplayMCImageLeft_String,
+        DisplayMCImageRight = vr::Prop_DisplayMCImageRight_String,
+        DisplayGCBlackClamp = vr::Prop_DisplayGCBlackClamp_Float,
+        EdidProductID = vr::Prop_EdidProductID_Int32,
+        CameraToHeadTransform = vr::Prop_CameraToHeadTransform_Matrix34,
+        DisplayGCType = vr::Prop_DisplayGCType_Int32,
+        DisplayGCOffset = vr::Prop_DisplayGCOffset_Float,
+        DisplayGCScale = vr::Prop_DisplayGCScale_Float,
+        DisplayGCPrescale = vr::Prop_DisplayGCPrescale_Float,
+        DisplayGCImage = vr::Prop_DisplayGCImage_String,
+        LensCenterLeftU = vr::Prop_LensCenterLeftU_Float,
+        LensCenterLeftV = vr::Prop_LensCenterLeftV_Float,
+        LensCenterRightU = vr::Prop_LensCenterRightU_Float,
+        LensCenterRightV = vr::Prop_LensCenterRightV_Float,
+        UserHeadToEyeDepthMeters = vr::Prop_UserHeadToEyeDepthMeters_Float,
+        CameraFirmwareVersion = vr::Prop_CameraFirmwareVersion_Uint64,
+        CameraFirmwareDescription = vr::Prop_CameraFirmwareDescription_String,
+        DisplayFPGAVersion = vr::Prop_DisplayFPGAVersion_Uint64,
+        DisplayBootloaderVersion = vr::Prop_DisplayBootloaderVersion_Uint64,
+        DisplayHardwareVersion = vr::Prop_DisplayHardwareVersion_Uint64,
+        AudioFirmwareVersion = vr::Prop_AudioFirmwareVersion_Uint64,
+        CameraCompatibilityMode = vr::Prop_CameraCompatibilityMode_Int32,
+        AttachedDeviceId = vr::Prop_AttachedDeviceId_String,
+        SupportedButtons = vr::Prop_SupportedButtons_Uint64,
+        Axis0Type = vr::Prop_Axis0Type_Int32,
+        Axis1Type = vr::Prop_Axis1Type_Int32,
+        Axis2Type = vr::Prop_Axis2Type_Int32,
+        Axis3Type = vr::Prop_Axis3Type_Int32,
+        Axis4Type = vr::Prop_Axis4Type_Int32,
+        FieldOfViewLeftDegrees = vr::Prop_FieldOfViewLeftDegrees_Float,
+        FieldOfViewRightDegrees = vr::Prop_FieldOfViewRightDegrees_Float,
+        FieldOfViewTopDegrees = vr::Prop_FieldOfViewTopDegrees_Float,
+        FieldOfViewBottomDegrees = vr::Prop_FieldOfViewBottomDegrees_Float,
+        TrackingRangeMinimumMeters = vr::Prop_TrackingRangeMinimumMeters_Float,
+        TrackingRangeMaximumMeters = vr::Prop_TrackingRangeMaximumMeters_Float,
+        ModeLabel = vr::Prop_ModeLabel_String
+    };
+    namespace detail {
+        template <std::size_t EnumVal> struct PropertyTypeTrait;
+        template <std::size_t EnumVal>
+        using PropertyType = typename PropertyTypeTrait<EnumVal>::type;
+        template <>
+        struct PropertyTypeTrait<vr::Prop_TrackingSystemName_String> {
+            using type = std::string;
+        };
+        template <> struct PropertyTypeTrait<vr::Prop_ModelNumber_String> {
+            using type = std::string;
+        };
+        template <> struct PropertyTypeTrait<vr::Prop_SerialNumber_String> {
+            using type = std::string;
+        };
+        template <> struct PropertyTypeTrait<vr::Prop_RenderModelName_String> {
+            using type = std::string;
+        };
+        template <> struct PropertyTypeTrait<vr::Prop_WillDriftInYaw_Bool> {
+            using type = bool;
+        };
+        template <> struct PropertyTypeTrait<vr::Prop_ManufacturerName_String> {
+            using type = std::string;
+        };
+        template <>
+        struct PropertyTypeTrait<vr::Prop_TrackingFirmwareVersion_String> {
+            using type = std::string;
+        };
+        template <> struct PropertyTypeTrait<vr::Prop_HardwareRevision_String> {
+            using type = std::string;
+        };
+        template <>
+        struct PropertyTypeTrait<
+            vr::Prop_AllWirelessDongleDescriptions_String> {
+            using type = std::string;
+        };
+        template <>
+        struct PropertyTypeTrait<vr::Prop_ConnectedWirelessDongle_String> {
+            using type = std::string;
+        };
+        template <> struct PropertyTypeTrait<vr::Prop_DeviceIsWireless_Bool> {
+            using type = bool;
+        };
+        template <> struct PropertyTypeTrait<vr::Prop_DeviceIsCharging_Bool> {
+            using type = bool;
+        };
+        template <>
+        struct PropertyTypeTrait<vr::Prop_DeviceBatteryPercentage_Float> {
+            using type = float;
+        };
+        template <>
+        struct PropertyTypeTrait<vr::Prop_StatusDisplayTransform_Matrix34> {
+            using type = vr::HmdMatrix34_t;
+        };
+        template <>
+        struct PropertyTypeTrait<vr::Prop_Firmware_UpdateAvailable_Bool> {
+            using type = bool;
+        };
+        template <>
+        struct PropertyTypeTrait<vr::Prop_Firmware_ManualUpdate_Bool> {
+            using type = bool;
+        };
+        template <>
+        struct PropertyTypeTrait<vr::Prop_Firmware_ManualUpdateURL_String> {
+            using type = std::string;
+        };
+        template <> struct PropertyTypeTrait<vr::Prop_HardwareRevision_Uint64> {
+            using type = uint64_t;
+        };
+        template <> struct PropertyTypeTrait<vr::Prop_FirmwareVersion_Uint64> {
+            using type = uint64_t;
+        };
+        template <> struct PropertyTypeTrait<vr::Prop_FPGAVersion_Uint64> {
+            using type = uint64_t;
+        };
+        template <> struct PropertyTypeTrait<vr::Prop_VRCVersion_Uint64> {
+            using type = uint64_t;
+        };
+        template <> struct PropertyTypeTrait<vr::Prop_RadioVersion_Uint64> {
+            using type = uint64_t;
+        };
+        template <> struct PropertyTypeTrait<vr::Prop_DongleVersion_Uint64> {
+            using type = uint64_t;
+        };
+        template <>
+        struct PropertyTypeTrait<vr::Prop_BlockServerShutdown_Bool> {
+            using type = bool;
+        };
+        template <>
+        struct PropertyTypeTrait<
+            vr::Prop_CanUnifyCoordinateSystemWithHmd_Bool> {
+            using type = bool;
+        };
+        template <>
+        struct PropertyTypeTrait<vr::Prop_ContainsProximitySensor_Bool> {
+            using type = bool;
+        };
+        template <>
+        struct PropertyTypeTrait<vr::Prop_DeviceProvidesBatteryStatus_Bool> {
+            using type = bool;
+        };
+        template <> struct PropertyTypeTrait<vr::Prop_DeviceCanPowerOff_Bool> {
+            using type = bool;
+        };
+        template <>
+        struct PropertyTypeTrait<vr::Prop_Firmware_ProgrammingTarget_String> {
+            using type = std::string;
+        };
+        template <> struct PropertyTypeTrait<vr::Prop_DeviceClass_Int32> {
+            using type = int32_t;
+        };
+        template <> struct PropertyTypeTrait<vr::Prop_HasCamera_Bool> {
+            using type = bool;
+        };
+        template <>
+        struct PropertyTypeTrait<vr::Prop_ReportsTimeSinceVSync_Bool> {
+            using type = bool;
+        };
+        template <>
+        struct PropertyTypeTrait<vr::Prop_SecondsFromVsyncToPhotons_Float> {
+            using type = float;
+        };
+        template <> struct PropertyTypeTrait<vr::Prop_DisplayFrequency_Float> {
+            using type = float;
+        };
+        template <> struct PropertyTypeTrait<vr::Prop_UserIpdMeters_Float> {
+            using type = float;
+        };
+        template <>
+        struct PropertyTypeTrait<vr::Prop_CurrentUniverseId_Uint64> {
+            using type = uint64_t;
+        };
+        template <>
+        struct PropertyTypeTrait<vr::Prop_PreviousUniverseId_Uint64> {
+            using type = uint64_t;
+        };
+        template <>
+        struct PropertyTypeTrait<vr::Prop_DisplayFirmwareVersion_Uint64> {
+            using type = uint64_t;
+        };
+        template <> struct PropertyTypeTrait<vr::Prop_IsOnDesktop_Bool> {
+            using type = bool;
+        };
+        template <> struct PropertyTypeTrait<vr::Prop_DisplayMCType_Int32> {
+            using type = int32_t;
+        };
+        template <> struct PropertyTypeTrait<vr::Prop_DisplayMCOffset_Float> {
+            using type = float;
+        };
+        template <> struct PropertyTypeTrait<vr::Prop_DisplayMCScale_Float> {
+            using type = float;
+        };
+        template <> struct PropertyTypeTrait<vr::Prop_EdidVendorID_Int32> {
+            using type = int32_t;
+        };
+        template <>
+        struct PropertyTypeTrait<vr::Prop_DisplayMCImageLeft_String> {
+            using type = std::string;
+        };
+        template <>
+        struct PropertyTypeTrait<vr::Prop_DisplayMCImageRight_String> {
+            using type = std::string;
+        };
+        template <>
+        struct PropertyTypeTrait<vr::Prop_DisplayGCBlackClamp_Float> {
+            using type = float;
+        };
+        template <> struct PropertyTypeTrait<vr::Prop_EdidProductID_Int32> {
+            using type = int32_t;
+        };
+        template <>
+        struct PropertyTypeTrait<vr::Prop_CameraToHeadTransform_Matrix34> {
+            using type = vr::HmdMatrix34_t;
+        };
+        template <> struct PropertyTypeTrait<vr::Prop_DisplayGCType_Int32> {
+            using type = int32_t;
+        };
+        template <> struct PropertyTypeTrait<vr::Prop_DisplayGCOffset_Float> {
+            using type = float;
+        };
+        template <> struct PropertyTypeTrait<vr::Prop_DisplayGCScale_Float> {
+            using type = float;
+        };
+        template <> struct PropertyTypeTrait<vr::Prop_DisplayGCPrescale_Float> {
+            using type = float;
+        };
+        template <> struct PropertyTypeTrait<vr::Prop_DisplayGCImage_String> {
+            using type = std::string;
+        };
+        template <> struct PropertyTypeTrait<vr::Prop_LensCenterLeftU_Float> {
+            using type = float;
+        };
+        template <> struct PropertyTypeTrait<vr::Prop_LensCenterLeftV_Float> {
+            using type = float;
+        };
+        template <> struct PropertyTypeTrait<vr::Prop_LensCenterRightU_Float> {
+            using type = float;
+        };
+        template <> struct PropertyTypeTrait<vr::Prop_LensCenterRightV_Float> {
+            using type = float;
+        };
+        template <>
+        struct PropertyTypeTrait<vr::Prop_UserHeadToEyeDepthMeters_Float> {
+            using type = float;
+        };
+        template <>
+        struct PropertyTypeTrait<vr::Prop_CameraFirmwareVersion_Uint64> {
+            using type = uint64_t;
+        };
+        template <>
+        struct PropertyTypeTrait<vr::Prop_CameraFirmwareDescription_String> {
+            using type = std::string;
+        };
+        template <>
+        struct PropertyTypeTrait<vr::Prop_DisplayFPGAVersion_Uint64> {
+            using type = uint64_t;
+        };
+        template <>
+        struct PropertyTypeTrait<vr::Prop_DisplayBootloaderVersion_Uint64> {
+            using type = uint64_t;
+        };
+        template <>
+        struct PropertyTypeTrait<vr::Prop_DisplayHardwareVersion_Uint64> {
+            using type = uint64_t;
+        };
+        template <>
+        struct PropertyTypeTrait<vr::Prop_AudioFirmwareVersion_Uint64> {
+            using type = uint64_t;
+        };
+        template <>
+        struct PropertyTypeTrait<vr::Prop_CameraCompatibilityMode_Int32> {
+            using type = int32_t;
+        };
+        template <> struct PropertyTypeTrait<vr::Prop_AttachedDeviceId_String> {
+            using type = std::string;
+        };
+        template <> struct PropertyTypeTrait<vr::Prop_SupportedButtons_Uint64> {
+            using type = uint64_t;
+        };
+        template <> struct PropertyTypeTrait<vr::Prop_Axis0Type_Int32> {
+            using type = int32_t;
+        };
+        template <> struct PropertyTypeTrait<vr::Prop_Axis1Type_Int32> {
+            using type = int32_t;
+        };
+        template <> struct PropertyTypeTrait<vr::Prop_Axis2Type_Int32> {
+            using type = int32_t;
+        };
+        template <> struct PropertyTypeTrait<vr::Prop_Axis3Type_Int32> {
+            using type = int32_t;
+        };
+        template <> struct PropertyTypeTrait<vr::Prop_Axis4Type_Int32> {
+            using type = int32_t;
+        };
+        template <>
+        struct PropertyTypeTrait<vr::Prop_FieldOfViewLeftDegrees_Float> {
+            using type = float;
+        };
+        template <>
+        struct PropertyTypeTrait<vr::Prop_FieldOfViewRightDegrees_Float> {
+            using type = float;
+        };
+        template <>
+        struct PropertyTypeTrait<vr::Prop_FieldOfViewTopDegrees_Float> {
+            using type = float;
+        };
+        template <>
+        struct PropertyTypeTrait<vr::Prop_FieldOfViewBottomDegrees_Float> {
+            using type = float;
+        };
+        template <>
+        struct PropertyTypeTrait<vr::Prop_TrackingRangeMinimumMeters_Float> {
+            using type = float;
+        };
+        template <>
+        struct PropertyTypeTrait<vr::Prop_TrackingRangeMaximumMeters_Float> {
+            using type = float;
+        };
+        template <> struct PropertyTypeTrait<vr::Prop_ModeLabel_String> {
+            using type = std::string;
+        };
+    } // namespace detail
+
+} // namespace vive
+} // namespace osvr
+
+#endif // INCLUDED_PropertyTraits_h_GUID_6CC473E5_C8B9_46B7_237B_1E0C08E91076
