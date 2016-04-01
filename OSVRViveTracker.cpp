@@ -35,9 +35,11 @@
 #include <boost/assert.hpp>
 #include <osvr/Util/EigenCoreGeometry.h>
 #include <osvr/Util/EigenInterop.h>
+#include <osvr/Util/TimeValue.h>
 
 // Standard includes
 #include <array>
+#include <chrono>
 
 namespace osvr {
 namespace vive {
@@ -76,6 +78,40 @@ namespace vive {
     static const auto TRACKPAD_X_ANALOG_OFFSET = 0;
     static const auto TRACKPAD_Y_ANALOG_OFFSET = 1;
     static const auto TRIGGER_ANALOG_OFFSET = 2;
+
+    /// Add a util::time::TimeValue and a std::chrono::duration, returning a
+    /// TimeValue again.
+    ///
+    /// Originally from OSVR-Core
+    /// plugins/unifiedvideoinertialtracker/ThreadsafeBodyReporting.cpp but it
+    /// (or something like it) really belongs in a header of its own somewhere
+    template <typename Rep, typename Period>
+    inline util::time::TimeValue
+    operator+(util::time::TimeValue const &tv,
+              std::chrono::duration<Rep, Period> additionalTime) {
+        using namespace std::chrono;
+        using SecondsDuration = duration<OSVR_TimeValue_Seconds>;
+        using USecondsDuration =
+            duration<OSVR_TimeValue_Microseconds, std::micro>;
+        auto ret = tv;
+        auto seconds = duration_cast<SecondsDuration>(additionalTime);
+        ret.seconds += seconds.count();
+        ret.microseconds +=
+            duration_cast<USecondsDuration>(additionalTime - seconds).count();
+        osvrTimeValueNormalize(&ret);
+        return ret;
+    }
+
+    /// Single, centralized routine to apply the various event time offsets - so
+    /// if we're wrong about the sign to be applied, we only have to fix it in
+    /// one place.
+    ///
+    /// @todo validate the direction of those offsets.
+    inline util::time::TimeValue
+    correctTimeByOffset(util::time::TimeValue const &tv,
+                        double eventTimeOffset) {
+        return tv + std::chrono::duration<double>(eventTimeOffset);
+    }
 
     ViveDriverHost::ViveDriverHost()
         : m_universeXform(Eigen::Isometry3d::Identity()),
@@ -280,8 +316,8 @@ namespace vive {
     void ViveDriverHost::submitButton(OSVR_ChannelCount sensor, bool state,
                                       double eventTimeOffset) {
         ButtonReport out;
-        /// @todo adjust by eventTimeOffset
-        out.timestamp = osvr::util::time::getNow();
+        out.timestamp =
+            correctTimeByOffset(osvr::util::time::getNow(), eventTimeOffset);
         out.sensor = sensor;
         out.buttonState = state ? OSVR_BUTTON_PRESSED : OSVR_BUTTON_NOT_PRESSED;
         {
@@ -371,8 +407,10 @@ namespace vive {
         ei::map(pose.rotation) = m_universeRotation * worldFromDriverRotation *
                                  qRotation * driverFromHeadRotation;
 
+        auto correctedTimestamp =
+            correctTimeByOffset(tv, newPose.poseTimeOffset);
         osvrDeviceTrackerSendPoseTimestamped(m_dev, m_tracker, &pose, sensor,
-                                             &tv);
+                                             &correctedTimestamp);
     }
 
     void ViveDriverHost::handleUniverseChange(std::uint64_t newUniverse) {
