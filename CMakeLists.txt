@@ -20,6 +20,8 @@ find_package(JsonCpp REQUIRED)
 find_package(Boost REQUIRED COMPONENTS system iostreams filesystem)
 find_package(Eigen3 REQUIRED)
 
+option(BUILD_EXTRA_TOOLS "Whether the extra, optional tools should also be built." OFF)
+
 # Interface target for the openvr_driver.h header we'll use to interact with the target driver.
 add_library(OpenVRDriver INTERFACE)
 target_include_directories(OpenVRDriver INTERFACE "${CMAKE_CURRENT_SOURCE_DIR}/vendor/openvr/headers")
@@ -119,12 +121,19 @@ target_include_directories(com_osvr_Vive
     PRIVATE
     ${EIGEN3_INCLUDE_DIR})
 
-# Build the executable
-add_executable(ViveLoader
-    ViveLoader.cpp)
+if(BUILD_EXTRA_TOOLS)
+    # Build the executable
+    add_executable(ViveLoader
+        ViveLoader.cpp)
+    target_link_libraries(ViveLoader PRIVATE ViveLoaderLib)
+    copy_imported_targets(ViveLoader osvr::osvrUtil)
 
-target_link_libraries(ViveLoader PRIVATE ViveLoaderLib)
-copy_imported_targets(ViveLoader osvr::osvrUtil)
+
+    add_executable(GenerateTypedPropertyEnums
+        GenerateTypedPropertyEnums.cpp)
+    target_link_libraries(GenerateTypedPropertyEnums PRIVATE JsonCpp::JsonCpp osvr::osvrUtil)
+    target_include_directories(GenerateTypedPropertyEnums PRIVATE ${Boost_INCLUDE_DIRS})
+endif()
 
 # Build another tool
 osvr_convert_json(viveDisplayInput
