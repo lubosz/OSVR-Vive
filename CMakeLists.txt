@@ -100,7 +100,7 @@ add_library(ViveLoaderLib STATIC
     VRSettings.h)
 target_link_libraries(ViveLoaderLib
     PUBLIC
-    OpenVRDriver osvr::osvrUtil linkable_into_dll
+    OpenVRDriver osvr::osvrUtil linkable_into_dll ${CMAKE_DL_LIBS}
     PRIVATE
     filesystem_lib JsonCpp::JsonCpp)
 target_include_directories(ViveLoaderLib PUBLIC ${CMAKE_CURRENT_BINARY_DIRECTORY} PRIVATE ${Boost_INCLUDE_DIRS})
