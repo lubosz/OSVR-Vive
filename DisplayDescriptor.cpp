@@ -26,6 +26,7 @@
 
 // Internal Includes
 #include "DisplayDescriptor.h"
+#include "osvr/Util/PlatformConfig.h"
 
 // Library/third-party includes
 #include <json/reader.h>
@@ -36,6 +37,10 @@
 #include <algorithm>
 #include <cmath>
 #include <iostream>
+
+#if defined(OSVR_LINUX) || defined(OSVR_MACOSX)
+#include <float.h> // FLT_EPSILON
+#endif
 
 namespace osvr {
 namespace vive {
