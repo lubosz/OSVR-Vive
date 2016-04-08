@@ -92,7 +92,7 @@ namespace vive {
         }
         factory_ = reinterpret_cast<DriverFactory>(proc);
 #elif defined(OSVR_LINUX) || defined(OSVR_MACOSX)
-        impl_->driver_ = dlopen(driverFile.c_str());
+        impl_->driver_ = dlopen(driverFile.c_str(), RTLD_NOW | RTLD_GLOBAL);
         if (!impl_->driver_) {
             reset();
             throw CouldNotLoadDriverModule(dlerror());
