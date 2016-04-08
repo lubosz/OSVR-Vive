@@ -37,9 +37,7 @@
 #define WIN32_LEAN_AND_MEAN
 #define NO_MINMAX
 #include <windows.h>
-#elif defined(OSVR_LINUX)
-#include <dlfcn.h>
-#elif defined(OSVR_MACOSX)
+#elif defined(OSVR_LINUX) || defined(OSVR_MACOSX)
 #include <dlfcn.h>
 #endif
 
