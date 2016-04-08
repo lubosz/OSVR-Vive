@@ -101,7 +101,7 @@ namespace vive {
 #ifdef _MSC_VER
             _putenv_s(SEARCH_PATH_ENV, val.c_str());
 #else // not microsoft runtime specific
-            auto newValue = SEARCH_PATH_ENV + "=" + val;
+            auto newValue = SEARCH_PATH_ENV + std::string("=") + val;
             // Have to allocate new string because it becomes part of the
             // environment.
             char *newString = static_cast<char *>(malloc(newValue.size() + 1));

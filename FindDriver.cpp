@@ -47,6 +47,7 @@
 #include <shlobj.h>
 #else
 #include <cstdlib> // for getenv
+#include <fstream> // std::ifstream
 #endif
 
 #undef VIVELOADER_VERBOSE
