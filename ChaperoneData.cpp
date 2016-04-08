@@ -37,6 +37,7 @@
 #include <iostream>
 #include <map>
 #include <sstream>
+#include <algorithm>
 
 #ifdef _WIN32
 #define WIN32_LEAN_AND_MEAN
@@ -100,6 +101,7 @@ getFile(std::string const &fn,
     return os.str();
 }
 #else
+#include <cstring> // strerror
 
 std::string
 getFile(std::string const &fn,
@@ -119,7 +121,7 @@ getFile(std::string const &fn,
     }
     std::ostringstream os;
     std::string temp;
-    while (std::getline(os, temp)) {
+    while (std::getline(s, temp)) {
         os << temp;
     }
     return os.str();
