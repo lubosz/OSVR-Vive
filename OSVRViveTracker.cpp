@@ -316,6 +316,11 @@ namespace vive {
         return devs.addAndActivateDevice(dev);
     }
 
+    std::ostream &ViveDriverHost::msg() const {
+        std::cout << PREFIX;
+        return std::cout;
+    }
+
     void ViveDriverHost::recordBaseStationSerial(const char *serial) {
         {
             std::lock_guard<std::mutex> lock(m_baseStationMutex);
@@ -384,11 +389,44 @@ namespace vive {
             m_analogReports.submitNew(std::move(out), lock);
         }
     }
-
+    static inline const char *
+    trackingResultToString(vr::ETrackingResult trackingResult) {
+        switch (trackingResult) {
+        case vr::TrackingResult_Uninitialized:
+            return "Uninitialized";
+            break;
+        case vr::TrackingResult_Calibrating_InProgress:
+            return "Calibrating (In Progress)";
+            break;
+        case vr::TrackingResult_Calibrating_OutOfRange:
+            return "Calibrating (Out of Range)";
+            break;
+        case vr::TrackingResult_Running_OK:
+            return "Running (OK)";
+            break;
+        case vr::TrackingResult_Running_OutOfRange:
+            return "Running (Out of Range)";
+            break;
+        default:
+            assert(0 && "Should not happen!");
+            return "Unknown";
+            break;
+        }
+    }
     void ViveDriverHost::convertAndSendTracker(OSVR_TimeValue const &tv,
                                                OSVR_ChannelCount sensor,
                                                const DriverPose_t &newPose) {
+        if (!(sensor < m_trackingResults.size())) {
+            m_trackingResults.resize(sensor + 1, vr::TrackingResult_Uninitialized);
+        }
 
+        if (newPose.result != m_trackingResults[sensor]) {
+            msg() << "Sensor " << sensor << " changed status from '"
+                  << trackingResultToString(m_trackingResults[sensor])
+                  << "' to '" << trackingResultToString(newPose.result) << "'"
+                  << std::endl;
+            m_trackingResults[sensor] = newPose.result;
+        }
         if (!newPose.poseIsValid) {
             /// @todo better handle non-valid states?
             return;

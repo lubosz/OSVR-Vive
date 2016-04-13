@@ -142,8 +142,9 @@ namespace vive {
 #endif
 
       private:
+        std::ostream &msg() const;
         /// called from tracker thread, handles locking.
-        void recordBaseStationSerial(const char * serial);
+        void recordBaseStationSerial(const char *serial);
 
         /// Gets a driver pointer - may not be activated, since if it's not
         /// handled by the vive object, we'll go back to the server tracked
@@ -227,6 +228,7 @@ namespace vive {
         std::uint64_t m_universeId = 0;
         Eigen::Isometry3d m_universeXform;
         Eigen::Quaterniond m_universeRotation;
+        std::vector<vr::ETrackingResult> m_trackingResults;
 
         /// @}
     };
