@@ -34,11 +34,15 @@
 #include <iostream>
 
 #if defined(OSVR_WINDOWS)
+
 #define WIN32_LEAN_AND_MEAN
 #define NO_MINMAX
 #include <windows.h>
+
 #elif defined(OSVR_LINUX) || defined(OSVR_MACOSX)
+
 #include <dlfcn.h>
+
 #endif
 
 namespace osvr {
@@ -103,7 +107,7 @@ namespace vive {
             reset();
             throw CouldNotLoadEntryPoint(dlerror());
         }
-        factory_ = reinterpret_cast<DriverFactory>(proc);                                                                       \
+        factory_ = reinterpret_cast<DriverFactory>(proc);
 #endif
     }
 
