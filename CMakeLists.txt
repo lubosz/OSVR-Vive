@@ -102,7 +102,7 @@ target_link_libraries(ViveLoaderLib
     PUBLIC
     OpenVRDriver osvr::osvrUtil linkable_into_dll
     PRIVATE
-    filesystem_lib JsonCpp::JsonCpp)
+    filesystem_lib JsonCpp::JsonCpp ${CMAKE_DL_LIBS}) # ${CMAKE_DL_LIBS} is set to empty string, when system doesn't provide dlfcn. For example, Windows.
 target_include_directories(ViveLoaderLib PUBLIC ${CMAKE_CURRENT_BINARY_DIRECTORY} PRIVATE ${Boost_INCLUDE_DIRS})
 
 # Build the plugin

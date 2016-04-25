@@ -26,7 +26,8 @@
 #define INCLUDED_DriverLoader_h_GUID_882F2FD5_F218_42BE_3088_31CF712EC455
 
 // Internal Includes
-// - none
+#include <osvr/Util/PlatformConfig.h>
+#include <InterfaceTraits.h>
 
 // Library/third-party includes
 // - none
@@ -40,11 +41,19 @@
 namespace osvr {
 namespace vive {
     struct CouldNotLoadDriverModule : std::runtime_error {
+        CouldNotLoadDriverModule(const char *errString)
+            : std::runtime_error(
+                  "Could not load driver module: " +
+                   std::string(errString)) {}
         CouldNotLoadDriverModule()
             : std::runtime_error("Could not load driver module.") {}
     };
 
     struct CouldNotLoadEntryPoint : std::runtime_error {
+        CouldNotLoadEntryPoint(const char *errString)
+            : std::runtime_error(
+                  "Could not load entry point function from driver: " +
+                   std::string(errString)) {}
         CouldNotLoadEntryPoint()
             : std::runtime_error(
                   "Could not load entry point function from driver.") {}

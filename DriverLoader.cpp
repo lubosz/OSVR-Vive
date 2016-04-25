@@ -34,9 +34,15 @@
 #include <iostream>
 
 #if defined(OSVR_WINDOWS)
+
 #define WIN32_LEAN_AND_MEAN
 #define NO_MINMAX
 #include <windows.h>
+
+#elif defined(OSVR_LINUX) || defined(OSVR_MACOSX)
+
+#include <dlfcn.h>
+
 #endif
 
 namespace osvr {
@@ -48,10 +54,8 @@ namespace vive {
 /// Platform-specific handle to dynamic library
 #if defined(OSVR_WINDOWS)
         HMODULE driver_ = nullptr;
-#elif defined(OSVR_MACOSX)
-#error "Implementation incomplete!"
-#elif defined(OSVR_LINUX)
-#error "Implementation incomplete!"
+#elif defined(OSVR_MACOSX) || defined(OSVR_LINUX)
+        void *driver_ = nullptr;
 #endif
 
         /// Destructor: should contain platform-specific code to unload dynamic
@@ -61,10 +65,10 @@ namespace vive {
             if (driver_) {
                 FreeLibrary(driver_);
             }
-#elif defined(OSVR_MACOSX)
-#error "Implementation incomplete! Unload dynamic library here!"
-#elif defined(OSVR_LINUX)
-#error "Implementation incomplete! Unload dynamic library here!"
+#elif defined(OSVR_MACOSX) || defined(OSVR_LINUX)
+            if (driver_) {
+                dlclose(driver_);
+            }
 #endif
         }
     };
@@ -91,12 +95,19 @@ namespace vive {
             throw CouldNotLoadEntryPoint();
         }
         factory_ = reinterpret_cast<DriverFactory>(proc);
-#elif defined(OSVR_MACOSX)
-#error                                                                         \
-    "Implementation incomplete! Load dynamic library here and retrieve entry point function here!"
-#elif defined(OSVR_LINUX)
-#error                                                                         \
-    "Implementation incomplete! Load dynamic library here and retrieve entry point function here!"
+#elif defined(OSVR_LINUX) || defined(OSVR_MACOSX)
+        impl_->driver_ = dlopen(driverFile.c_str(), RTLD_NOW | RTLD_GLOBAL);
+        if (!impl_->driver_) {
+            reset();
+            throw CouldNotLoadDriverModule(dlerror());
+        }
+
+        auto proc = dlsym(impl_->driver_, ENTRY_POINT_FUNCTION_NAME);
+        if (!proc) {
+            reset();
+            throw CouldNotLoadEntryPoint(dlerror());
+        }
+        factory_ = reinterpret_cast<DriverFactory>(proc);
 #endif
     }
 
