@@ -37,9 +37,9 @@
 #include <limits.h>
 #include <vector>
 
-#if _MSC_VER >= 1800
+#if defined(OSVR_USING_FILESYSTEM_TR2)
 #include <filesystem>
-#else
+#elif defined(OSVR_USING_BOOST_FILESYSTEM)
 #include <boost/filesystem.hpp>
 #endif
 
@@ -109,8 +109,8 @@ namespace vive {
             std::cerr << reader.getFormattedErrorMessages() << std::endl;
         }
     }
-#if defined(OSVR_WINDOWS)
 
+#if defined(OSVR_WINDOWS)
     inline Json::Value getPathConfig() {
         PWSTR outString = nullptr;
         Json::Value ret;
@@ -172,6 +172,7 @@ namespace vive {
         }
         return ret;
     }
+
     inline std::vector<std::string> getSteamVRRoots() {
         return getSteamVRRoots(getPathConfig());
     }
@@ -203,6 +204,7 @@ namespace vive {
             info.driverName = driver;
 
             computeDriverRootAndFilePath(info, driver);
+
 #ifdef VIVELOADER_VERBOSE
             std::cout << "Will try to load driver from:\n"
                       << info.driverFile << std::endl;
@@ -213,6 +215,7 @@ namespace vive {
                 std::cout << "Driver file exists" << std::endl;
             }
 #endif
+
             if (exists(path{info.driverRoot}) &&
                 exists(path{info.driverFile})) {
                 info.found = true;
@@ -269,6 +272,7 @@ namespace vive {
         ret = ConfigDirs{};
         return ret;
     }
+
     ConfigDirs findConfigDirs(std::string const & /*steamVrRoot*/,
                               std::string const &driver) {
         return findConfigDirs(getPathConfig(), driver);
