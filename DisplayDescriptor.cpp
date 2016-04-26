@@ -36,11 +36,8 @@
 // Standard includes
 #include <algorithm>
 #include <cmath>
-#include <iostream>
-
-#if defined(OSVR_LINUX) || defined(OSVR_MACOSX)
 #include <float.h> // FLT_EPSILON
-#endif
+#include <iostream>
 
 namespace osvr {
 namespace vive {
