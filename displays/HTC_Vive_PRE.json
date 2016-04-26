@@ -1,9 +1,9 @@
 {
    "hmd" : {
       "device" : {
-         "Note" : "",
+         "Note" : "This is a sample descriptor file only - please follow the instructions to use the ViveDisplayExtractor to generate a correct one for your device!",
          "Version" : "",
-         "model" : "Vive PRE",
+         "model" : "Vive/Vive PRE",
          "vendor" : "HTC"
       },
       "distortion" : {
