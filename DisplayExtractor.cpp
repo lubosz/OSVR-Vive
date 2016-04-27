@@ -179,7 +179,7 @@ void handleDisplay(vr::ITrackedDeviceServerDriver *dev,
               << std::endl;
 
     auto outputFiles =
-        computeOutputFiles("HTC_Vive_PRE.json", "HTC_Vive_PRE_meshdata.json");
+        computeOutputFiles("HTC_Vive.json", "HTC_Vive_meshdata.json");
     auto meshContents = generateMeshFileContents(display, MESH_STEPS);
 
     std::cout << PREFIX << "Writing distortion mesh data file:\n"
