@@ -110,7 +110,8 @@ namespace vive {
         }
 
         ret.monoHoriz = leftFov.left + leftFov.right;
-        if (notEqual(ret.monoHoriz, (rightFov.left + rightFov.right))) {
+        if (notEqual(static_cast<float>(ret.monoHoriz),
+                     (rightFov.left + rightFov.right))) {
             return withError("not matching in horizontal field of view");
         }
         if (notEqual(leftFov.top, rightFov.top) ||
