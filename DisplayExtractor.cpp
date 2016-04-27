@@ -199,6 +199,10 @@ void handleDisplay(vr::ITrackedDeviceServerDriver *dev,
         os << g_descriptor->getDescriptor() << std::flush;
         os.close();
     }
+    std::cout << PREFIX
+              << "Be sure to re-run this tool if you move your OSVR Server "
+                 "installation, as the generated files include absolute paths."
+              << std::endl;
 }
 
 int main() {
