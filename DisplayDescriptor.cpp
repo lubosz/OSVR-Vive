@@ -216,6 +216,21 @@ namespace vive {
         distortion["rgb_point_samples_external_file"] = fn;
     }
 
+    void DisplayDescriptor::setVendor(std::string const &vendor) {
+        Json::Value &dev = impl_->get("device");
+        dev["vendor"] = vendor;
+    }
+
+    void DisplayDescriptor::setModel(std::string const &model) {
+        Json::Value &dev = impl_->get("device");
+        dev["model"] = model;
+    }
+
+    void DisplayDescriptor::setNote(std::string const &note) {
+        Json::Value &dev = impl_->get("device");
+        dev["Note"] = note;
+    }
+
     std::string DisplayDescriptor::getDescriptor() const {
         return impl_->descriptor.toStyledString();
     }

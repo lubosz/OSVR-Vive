@@ -116,6 +116,12 @@ namespace vive {
 
         void setRGBMeshExternalFile(std::string const &fn);
 
+        void setVendor(std::string const &vendor);
+
+        void setModel(std::string const &model);
+
+        void setNote(std::string const &note);
+
         /// Get the descriptor.
         std::string getDescriptor() const;
 

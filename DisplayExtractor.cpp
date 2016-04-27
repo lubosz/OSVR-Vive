@@ -158,6 +158,51 @@ void handleDisplay(vr::ITrackedDeviceServerDriver *dev,
                    vr::IVRDisplayComponent *display) {
 
     g_gotDisplay = true;
+
+    /// Set the human-readable parts of the device descriptor.
+    {
+        vr::ETrackedPropertyError err;
+        std::string mfr;
+        std::tie(mfr, err) = getProperty<Props::ManufacturerName>(dev);
+        if (mfr.empty() || err != vr::TrackedProp_Success) {
+            std::cerr << "Error trying to read the manufacturer of the "
+                         "attached HMD..."
+                      << std::endl;
+            mfr.clear();
+        } else {
+            g_descriptor->setVendor(mfr);
+        }
+        std::string model;
+        std::tie(model, err) = getProperty<Props::ModelNumber>(dev);
+        if (model.empty() || err != vr::TrackedProp_Success) {
+            std::cerr << "Error trying to read the model of the attached HMD..."
+                      << std::endl;
+            model.clear();
+        } else {
+            if (model == "Vive DVT") {
+                // The Vive Design Verification Test is better known as...
+                model = "Vive PRE";
+            }
+            g_descriptor->setModel(model);
+        }
+
+        std::string serial;
+        std::tie(serial, err) = getProperty<Props::SerialNumber>(dev);
+        std::string unit;
+        if (serial.empty() || err != vr::TrackedProp_Success) {
+            std::cerr << "Error trying to read the serial number of the "
+                         "attached HMD..."
+                      << std::endl;
+            unit = mfr + " " + model;
+            g_descriptor->setNote("Specific to an individual " + unit +
+                                  " unit.");
+        } else {
+            unit = mfr + " " + model + " serial number " + serial;
+            g_descriptor->setNote("Specific to " + unit + ".");
+        }
+
+        std::cout << "\n" << PREFIX << unit << "\n" << std::endl;
+    }
     /// Verify/check the resolution
     {
         int32_t x, y;
