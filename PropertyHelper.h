@@ -72,7 +72,7 @@ namespace vive {
             template <typename T, typename... Args>
             static PropertyGetterReturn<bool>
             get(T *dev, vr::ETrackedDeviceProperty prop, Args... args) {
-                vr::ETrackedPropertyError err;
+                vr::ETrackedPropertyError err = vr::TrackedProp_Success;
                 bool val =
                     dev->GetBoolTrackedDeviceProperty(args..., prop, &err);
                 return std::make_pair(val, err);
@@ -83,7 +83,7 @@ namespace vive {
             template <typename T, typename... Args>
             static PropertyGetterReturn<float>
             get(T *dev, vr::ETrackedDeviceProperty prop, Args... args) {
-                vr::ETrackedPropertyError err;
+                vr::ETrackedPropertyError err = vr::TrackedProp_Success;
                 float val = dev->GetFloatTrackedDeviceProperty(
                     std::forward<Args>(args)..., prop, &err);
                 return std::make_pair(val, err);
@@ -94,7 +94,7 @@ namespace vive {
             template <typename T, typename... Args>
             static PropertyGetterReturn<int32_t>
             get(T *dev, vr::ETrackedDeviceProperty prop, Args... args) {
-                vr::ETrackedPropertyError err;
+                vr::ETrackedPropertyError err = vr::TrackedProp_Success;
                 int32_t val =
                     dev->GetInt32TrackedDeviceProperty(args..., prop, &err);
                 return std::make_pair(val, err);
@@ -105,7 +105,7 @@ namespace vive {
             template <typename T, typename... Args>
             static PropertyGetterReturn<vr::HmdMatrix34_t>
             get(T *dev, vr::ETrackedDeviceProperty prop, Args... args) {
-                vr::ETrackedPropertyError err;
+                vr::ETrackedPropertyError err = vr::TrackedProp_Success;
                 vr::HmdMatrix34_t val =
                     dev->GetMatrix34TrackedDeviceProperty(args..., prop, &err);
                 return std::make_pair(val, err);
@@ -124,7 +124,7 @@ namespace vive {
                     vr::k_unTrackingStringSize;
                 /// Start with a buffer of k_unTrackingStringSize as suggested.
                 std::vector<char> buf(INITIAL_BUFFER_SIZE, '\0');
-                vr::ETrackedPropertyError err;
+                vr::ETrackedPropertyError err = vr::TrackedProp_Success;
                 auto ret = dev->GetStringTrackedDeviceProperty(
                     args..., prop, buf.data(),
                     static_cast<uint32_t>(buf.size()), &err);
@@ -168,7 +168,7 @@ namespace vive {
             template <typename T, typename... Args>
             static PropertyGetterReturn<uint64_t>
             get(T *self, vr::ETrackedDeviceProperty prop, Args... args) {
-                vr::ETrackedPropertyError err;
+                vr::ETrackedPropertyError err = vr::TrackedProp_Success;
                 uint64_t val =
                     self->GetUint64TrackedDeviceProperty(args..., prop, &err);
                 return std::make_pair(val, err);
