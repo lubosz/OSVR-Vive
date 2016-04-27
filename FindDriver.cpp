@@ -33,11 +33,12 @@
 #include <osvr/Util/PlatformConfig.h>
 
 // Standard includes
+#include <fstream> // std::ifstream
 #include <iostream>
 #include <limits.h>
 #include <vector>
 
-#if defined(OSVR_USING_FILESYSTEM_TR2)
+#if defined(OSVR_USING_FILESYSTEM_HEADER)
 #include <filesystem>
 #elif defined(OSVR_USING_BOOST_FILESYSTEM)
 #include <boost/filesystem.hpp>
@@ -47,7 +48,6 @@
 #include <shlobj.h>
 #else
 #include <cstdlib> // for getenv
-#include <fstream> // std::ifstream
 #endif
 
 #undef VIVELOADER_VERBOSE
@@ -80,6 +80,14 @@ namespace vive {
     using std::tr2::sys::path;
     using std::tr2::sys::wpath;
     using std::tr2::sys::exists;
+#elif defined(OSVR_USING_FILESYSTEM_EXPERIMENTAL)
+    using std::experimental::filesystem::path;
+#ifdef _WIN32
+    /// Some Windows functions deal in wide strings, easier to just let it cope
+    /// with it.
+    using wpath = path;
+#endif
+    using std::experimental::filesystem::exists;
 #elif defined(OSVR_USING_BOOST_FILESYSTEM)
     using boost::filesystem::path;
     using boost::filesystem::exists;

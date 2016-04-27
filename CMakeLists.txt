@@ -41,7 +41,12 @@ target_compile_options(linkable_into_dll INTERFACE ${CMAKE_SHARED_LIBRARY_CXX_FL
 if(MSVC AND NOT MSVC_VERSION LESS 1800)
     # We can use the experimental filesystem header here.
     add_library(filesystem_lib INTERFACE)
-    target_compile_definitions(filesystem_lib INTERFACE OSVR_USING_FILESYSTEM_TR2)
+    target_compile_definitions(filesystem_lib INTERFACE OSVR_USING_FILESYSTEM_HEADER)
+    if(MSVC12)
+        target_compile_definitions(filesystem_lib INTERFACE OSVR_USING_FILESYSTEM_TR2)
+    elseif(MSVC14)
+        target_compile_definitions(filesystem_lib INTERFACE OSVR_USING_FILESYSTEM_EXPERIMENTAL)
+    endif()
 else()
     # Interface target for boost fs
     add_library(filesystem_lib INTERFACE)
