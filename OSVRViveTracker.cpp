@@ -128,10 +128,22 @@ namespace vive {
         m_vive.reset(new osvr::vive::DriverWrapper(std::move(inVive)));
 
         /// Finish setting up the Vive.
-        if (!m_vive->startServerDeviceProvider()) {
-            std::cerr << PREFIX << "Error: could not start the server "
-                                   "device provider in the "
-                                   "Vive driver. Exiting."
+        try {
+            if (!m_vive->startServerDeviceProvider()) {
+                std::cerr << PREFIX << "Error: could not start the server "
+                                       "device provider in the "
+                                       "Vive driver. Exiting."
+                          << std::endl;
+                return false;
+            }
+        } catch (CouldNotGetInterface &e) {
+            std::cerr << PREFIX
+                      << "Caught exception trying to start Vive server device "
+                         "provider: "
+                      << e.what() << std::endl;
+            std::cerr << "SteamVR interface version may have "
+                         "changed, may need to be rebuilt against an updated "
+                         "header or use an older SteamVR version. Exiting."
                       << std::endl;
             return false;
         }
