@@ -153,7 +153,7 @@ namespace vive {
 
         auto handleNewDevice = [&](const char *serialNum) {
             auto dev = m_vive->serverDevProvider().FindTrackedDeviceDriver(
-                serialNum, vr::ITrackedDeviceServerDriver_Version);
+                serialNum);
             if (!dev) {
                 /// The only devices we usually can't look up by serial number
                 /// seem to be the lighthouse base stations.
@@ -196,7 +196,7 @@ namespace vive {
                       << " tracked devices at startup" << std::endl;
             for (decltype(numDevices) i = 0; i < numDevices; ++i) {
                 auto dev = m_vive->serverDevProvider().GetTrackedDeviceDriver(
-                    i, vr::ITrackedDeviceServerDriver_Version);
+                    i);
                 activateDevice(dev);
             }
         }
@@ -589,7 +589,7 @@ namespace vive {
         }
         return std::make_pair(
             m_vive->serverDevProvider().GetTrackedDeviceDriver(
-                unWhichDevice, vr::ITrackedDeviceServerDriver_Version),
+                unWhichDevice),
             false);
     }
 
